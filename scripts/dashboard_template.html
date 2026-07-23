@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAMA · Calidad del aire CDMX</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nouislider@15.8.1/dist/nouislider.min.css">
+<script src="https://cdn.plot.ly/plotly-3.1.0.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/nouislider@15.8.1/dist/nouislider.min.js"></script>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --ink: #171a21;
+    --muted: #5c6572;
+    --faint: #8a93a1;
+    --border: #e3e6eb;
+    --border-strong: #cfd5dd;
+    --accent: #2b6de8;
+    --accent-soft: #eaf1fd;
+    --danger: #c8442c;
+    --ok: #1e8e5a;
+    --radius: 10px;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 13.5px;
+    line-height: 1.45;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 600;
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand h1 { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+  .brand span { font-size: 12px; color: var(--faint); font-weight: 500; }
+
+  .tabs { display: flex; gap: 2px; background: #eceef1; border-radius: 8px; padding: 3px; }
+  .tab-btn {
+    border: 1px solid transparent;
+    background: transparent;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-family: var(--font);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .tab-btn:hover { color: var(--ink); }
+  .tab-btn.active { background: var(--surface); color: var(--ink); border-color: var(--border); font-weight: 600; }
+  .tab-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* ---------- Filter bar ---------- */
+  .filters {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 20px 28px;
+  }
+  .filter-group { display: flex; flex-direction: column; gap: 7px; }
+  .filter-label {
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; max-width: 560px; }
+  .pill {
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-family: var(--font);
+    font-size: 12px; font-weight: 500;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+  }
+  .pill:hover { background: #eef1f5; }
+  .pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .year-slider-wrap { width: 300px; padding: 0 4px; }
+  .year-values { display: flex; justify-content: space-between; gap: 14px; font-size: 12px; color: var(--muted); font-weight: 500; margin-top: 6px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .noUi-target { height: 4px; border: none; background: #dde2e9; border-radius: 2px; box-shadow: none; }
+  .noUi-connect { background: var(--accent); }
+  .noUi-handle {
+    width: 16px !important; height: 16px !important; border-radius: 50%;
+    background: var(--surface); border: 2px solid var(--accent);
+    box-shadow: none; top: -7px !important; right: -8px !important; cursor: grab;
+  }
+  .noUi-handle:before, .noUi-handle:after { display: none; }
+  .noUi-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* station dropdown */
+  .st-dropdown { position: relative; }
+  .st-toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--border-strong); background: var(--surface);
+    border-radius: 8px; padding: 6px 12px;
+    font-family: var(--font); font-size: 12.5px; font-weight: 500; color: var(--ink);
+    cursor: pointer; transition: background 0.12s;
+    min-width: 210px; justify-content: space-between;
+  }
+  .st-toggle:hover { background: #eef1f5; }
+  .st-toggle .chev { color: var(--faint); font-size: 10px; }
+  .st-panel {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 700;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 300px;
+    display: none;
+    flex-direction: column;
+    box-shadow: 0 4px 8px rgba(23,26,33,0.08);
+  }
+  .st-panel.open { display: flex; }
+  .st-search { padding: 10px 10px 6px; border-bottom: 1px solid var(--border); }
+  .st-search input {
+    width: 100%; border: 1px solid var(--border-strong); border-radius: 6px;
+    padding: 6px 10px; font-family: var(--font); font-size: 12.5px; color: var(--ink);
+  }
+  .st-search input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+  .st-actions { display: flex; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .st-actions button {
+    border: none; background: none; color: var(--accent);
+    font-family: var(--font); font-size: 12px; font-weight: 600; cursor: pointer; padding: 2px 4px;
+    border-radius: 4px;
+  }
+  .st-actions button:hover { background: var(--accent-soft); }
+  .st-list { max-height: 260px; overflow-y: auto; padding: 6px; }
+  .st-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 8px; border-radius: 6px; cursor: pointer; font-size: 12.5px;
+  }
+  .st-item:hover { background: #f0f2f5; }
+  .st-item input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+  .st-item .code { font-weight: 600; width: 36px; }
+  .st-item .name { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .reset-btn {
+    border: 1px solid var(--border-strong); background: var(--surface);
+    border-radius: 8px; padding: 6px 14px;
+    font-family: var(--font); font-size: 12.5px; font-weight: 500; color: var(--muted);
+    cursor: pointer; transition: all 0.12s; margin-left: auto;
+  }
+  .reset-btn:hover { color: var(--ink); background: #eef1f5; }
+
+  /* ---------- KPIs ---------- */
+  .kpis {
+    display: flex; flex-wrap: wrap;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 4px 24px;
+  }
+  .kpi { padding: 14px 28px 14px 0; margin-right: 28px; border-right: 1px solid var(--border); min-width: 150px; }
+  .kpi:last-child { border-right: none; margin-right: 0; }
+  .kpi .k-label { font-size: 11.5px; color: var(--muted); font-weight: 500; margin-bottom: 3px; }
+  .kpi .k-value { font-size: 21px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .kpi .k-value .unit { font-size: 12px; font-weight: 500; color: var(--faint); margin-left: 3px; }
+  .kpi .k-sub { font-size: 11.5px; color: var(--faint); margin-top: 2px; }
+  .kpi .k-sub.up { color: var(--danger); }
+  .kpi .k-sub.down { color: var(--ok); }
+
+  /* ---------- Main ---------- */
+  main { padding: 20px 24px 40px; max-width: 1440px; margin: 0 auto; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+  }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px 0;
+  }
+  .card-head h2 { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+  .card-head .hint { font-size: 11.5px; color: var(--faint); }
+  .card-body { padding: 8px 10px 12px; }
+  .chart { width: 100%; }
+
+  .seg { display: inline-flex; background: #eceef1; border-radius: 7px; padding: 2px; gap: 2px; }
+  .seg button {
+    border: none; background: transparent; border-radius: 5px;
+    padding: 4px 10px; font-family: var(--font); font-size: 11.5px; font-weight: 500;
+    color: var(--muted); cursor: pointer;
+  }
+  .seg button.active { background: var(--surface); color: var(--ink); font-weight: 600; border: 1px solid var(--border); padding: 3px 9px; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 980px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  #map { height: 540px; border-radius: 0 0 var(--radius) var(--radius); z-index: 1; }
+  .map-wrap { position: relative; }
+  .map-legend {
+    position: absolute; bottom: 16px; right: 16px; z-index: 500;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; font-size: 11.5px; color: var(--muted);
+  }
+  .map-legend .grad { width: 160px; height: 8px; border-radius: 4px; margin: 6px 0 4px; }
+  .map-legend .ends { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+  .map-legend .title { font-weight: 600; color: var(--ink); }
+
+  .st-popup .t { font-weight: 700; font-size: 13px; margin-bottom: 2px; }
+  .st-popup .a { color: var(--muted); font-size: 11.5px; margin-bottom: 8px; }
+  .st-popup table { border-collapse: collapse; font-size: 12px; }
+  .st-popup td { padding: 1px 8px 1px 0; font-variant-numeric: tabular-nums; }
+  .st-popup td:first-child { color: var(--muted); }
+
+  .empty {
+    padding: 60px 20px; text-align: center; color: var(--muted); font-size: 13px;
+  }
+  .empty strong { display: block; font-size: 14px; color: var(--ink); margin-bottom: 4px; }
+
+  footer { padding: 0 24px 24px; color: var(--faint); font-size: 11.5px; max-width: 1440px; margin: 0 auto; }
+
+  @media (max-width: 760px) {
+    .topbar { flex-direction: column; height: auto; padding: 10px 16px; gap: 10px; align-items: flex-start; }
+    .filters { padding: 12px 16px; }
+    main { padding: 14px 16px 32px; }
+    .kpi { min-width: 45%; border-right: none; margin-right: 0; }
+    .year-slider-wrap { width: 100%; min-width: 200px; }
+    .filter-group { flex: 1 1 auto; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <h1>Calidad del aire · ZMVM</h1>
+    <span>RAMA 1986–2026</span>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab-btn active" data-tab="tendencias" role="tab">Tendencias</button>
+    <button class="tab-btn" data-tab="mapa" role="tab">Mapa</button>
+    <button class="tab-btn" data-tab="estaciones" role="tab">Estaciones</button>
+    <button class="tab-btn" data-tab="estacionalidad" role="tab">Estacionalidad</button>
+    <button class="tab-btn" data-tab="calidad" role="tab">Calidad de datos</button>
+  </nav>
+</header>
+
+<section class="filters">
+  <div class="filter-group">
+    <span class="filter-label">Contaminante</span>
+    <div class="pills" id="cont-pills"></div>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Periodo</span>
+    <div class="year-slider-wrap">
+      <div id="year-slider"></div>
+      <div class="year-values"><span id="y0-label"></span><span id="y1-label"></span></div>
+    </div>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Estaciones</span>
+    <div class="st-dropdown">
+      <button class="st-toggle" id="st-toggle">
+        <span id="st-toggle-text">Todas (54)</span><span class="chev">▼</span>
+      </button>
+      <div class="st-panel" id="st-panel">
+        <div class="st-search"><input type="text" id="st-search" placeholder="Buscar estación…"></div>
+        <div class="st-actions">
+          <button id="st-all">Todas</button>
+          <button id="st-none">Ninguna</button>
+        </div>
+        <div class="st-list" id="st-list"></div>
+      </div>
+    </div>
+  </div>
+  <button class="reset-btn" id="reset-btn">Restablecer filtros</button>
+</section>
+
+<section class="kpis" id="kpis"></section>
+
+<main>
+  <section class="panel active" id="panel-tendencias">
+    <div class="card">
+      <div class="card-head">
+        <h2>Concentración media mensual</h2>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span class="hint" id="trend-hint"></span>
+          <div class="seg" id="trend-seg">
+            <button data-mode="monthly" class="active">Mensual</button>
+            <button data-mode="annual">Anual</button>
+          </div>
+        </div>
+      </div>
+      <div class="card-body"><div id="chart-trend" class="chart" style="height:420px"></div></div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-mapa">
+    <div class="card">
+      <div class="card-head">
+        <h2>Distribución espacial</h2>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="seg" id="map-metric-seg">
+            <button data-metric="mean" class="active">Media</button>
+            <button data-metric="max">Máximo</button>
+            <button data-metric="p95">P95</button>
+          </div>
+          <div class="seg" id="map-mode-seg">
+            <button data-mode="points" class="active">Puntos</button>
+            <button data-mode="heat">Calor</button>
+          </div>
+        </div>
+      </div>
+      <div class="card-body" style="padding:12px 12px 12px;">
+        <div class="map-wrap">
+          <div id="map"></div>
+          <div class="map-legend" id="map-legend"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-estaciones">
+    <div class="card">
+      <div class="card-head">
+        <h2>Ranking de estaciones</h2>
+        <span class="hint" id="rank-hint"></span>
+      </div>
+      <div class="card-body"><div id="chart-rank" class="chart" style="height:460px"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>Evolución por estación y año</h2>
+        <span class="hint">Media mensual promediada por año</span>
+      </div>
+      <div class="card-body"><div id="chart-styear" class="chart" style="height:640px"></div></div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-estacionalidad">
+    <div class="card">
+      <div class="card-head">
+        <h2>Mes × año</h2>
+        <span class="hint">Intensidad de la concentración media</span>
+      </div>
+      <div class="card-body"><div id="chart-monthyear" class="chart" style="height:420px"></div></div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head"><h2>Distribución por mes</h2></div>
+        <div class="card-body"><div id="chart-box" class="chart" style="height:360px"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Promedio por estación del año</h2></div>
+        <div class="card-body"><div id="chart-season" class="chart" style="height:360px"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-calidad">
+    <div class="card">
+      <div class="card-head">
+        <h2>Cobertura de datos por año</h2>
+        <span class="hint">% de horas con medición válida</span>
+      </div>
+      <div class="card-body"><div id="chart-coverage" class="chart" style="height:320px"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>Cobertura por estación y año</h2>
+        <span class="hint">Gris = sin datos</span>
+      </div>
+      <div class="card-body"><div id="chart-covheat" class="chart" style="height:640px"></div></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  Fuente: Red Automática de Monitoreo Atmosférico (RAMA), SEDEMA CDMX · Promedios mensuales por estación ·
+  Unidades: CO en ppm; NO, NO₂, NOX, O₃, SO₂ en ppb; PM10, PM2.5, PMCO en µg/m³
+</footer>
+
+<script>/*__RAMA_DATA__*/</script>
+<script>
+(function () {
+  'use strict';
+  const D = window.RAMA;
+  const ST = D.stations, CT = D.conts, ROWS = D.rows;
+  const N_ST = ST.length;
+  const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const MONTHS_FULL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const SEASON_OF = [0,0,0,1,1,1,2,2,2,3,3,3]; // idx by month-1 -> season idx
+  const SEASONS = ['Invierno','Primavera','Verano','Otoño'];
+  const ACCENT = '#2b6de8';
+  const YLORD = ['#ffffcc','#ffeda0','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#bd0026','#800026'];
+  const GNBU = ['#f7fcf0','#e0f3db','#ccebc5','#a8ddb5','#7bccc4','#4eb3d3','#2b8cbe','#0868ac','#084081'];
+  const PLOT_CFG = { displayModeBar: false, responsive: true };
+  const BASE_LAYOUT = {
+    font: { family: 'Inter, -apple-system, sans-serif', color: '#171a21', size: 12 },
+    paper_bgcolor: '#fff', plot_bgcolor: '#fff',
+    margin: { l: 56, r: 20, t: 16, b: 44 },
+    xaxis: { gridcolor: '#f0f2f5', zeroline: false, linecolor: '#e3e6eb' },
+    yaxis: { gridcolor: '#f0f2f5', zeroline: false, linecolor: '#e3e6eb' },
+    hovermode: 'x unified',
+  };
+  function layout(over) { return Object.assign({}, BASE_LAYOUT, over); }
+  function safeReact(el, traces, lay, cfg) {
+    // Skip render into zero-size containers (hidden panels): Plotly's canvas
+    // pipeline throws getImageData(0) errors otherwise. The chart re-renders
+    // when its tab becomes active.
+    if (!el || el.clientWidth === 0) return;
+    Plotly.react(el, traces, lay, cfg);
+  }
+
+  // ---- helpers ----
+  function hexLerp(a, b, t) {
+    const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+    const r = Math.round(((pa >> 16) & 255) + (((pb >> 16) & 255) - ((pa >> 16) & 255)) * t);
+    const g = Math.round(((pa >> 8) & 255) + (((pb >> 8) & 255) - ((pa >> 8) & 255)) * t);
+    const bl = Math.round((pa & 255) + ((pb & 255) - (pa & 255)) * t);
+    return '#' + ((1 << 24) + (r << 16) + (g << 8) + bl).toString(16).slice(1);
+  }
+  function scaleColor(scale, t) {
+    t = Math.max(0, Math.min(1, t));
+    const pos = t * (scale.length - 1), i = Math.min(scale.length - 2, Math.floor(pos));
+    return hexLerp(scale[i], scale[i + 1], pos - i);
+  }
+  const fmt = (v, dec) => v == null ? '—' : v.toLocaleString('es-MX', { maximumFractionDigits: dec == null ? 1 : dec });
+  const contUnit = () => CT[state.cont].u;
+  const contName = () => CT[state.cont].n;
+
+  // ---- state ----
+  const state = {
+    cont: CT.findIndex(c => c.c === 'NOX') >= 0 ? CT.findIndex(c => c.c === 'NOX') : 0,
+    y0: D.yearMin, y1: D.yearMax,
+    stations: new Set(Array.from({ length: N_ST }, (_, i) => i)),
+    trendMode: 'monthly',
+    mapMetric: 'mean', mapMode: 'points',
+  };
+
+  function filtered() {
+    const out = [];
+    for (let i = 0; i < ROWS.length; i++) {
+      const r = ROWS[i];
+      if (r[3] !== state.cont) continue;
+      if (r[0] < state.y0 || r[0] > state.y1) continue;
+      if (!state.stations.has(r[2])) continue;
+      out.push(r);
+    }
+    return out;
+  }
+
+  // ================= KPIs =================
+  function updateKPIs(rows) {
+    let sum = 0, n = 0, psum = 0;
+    let maxV = -Infinity, maxR = null;
+    const stSeen = new Set();
+    for (const r of rows) {
+      if (r[4] != null) { sum += r[4]; n++; }
+      if (r[7] != null) psum += r[7];
+      if (r[5] != null && r[5] > maxV) { maxV = r[5]; maxR = r; }
+      stSeen.add(r[2]);
+    }
+    const mean = n ? sum / n : null;
+    const cov = rows.length ? psum / rows.length : null;
+
+    // delta vs previous period of same length
+    const span = state.y1 - state.y0 + 1;
+    let prevSum = 0, prevN = 0;
+    if (state.y0 - span >= D.yearMin - 1) {
+      for (const r of ROWS) {
+        if (r[3] !== state.cont) continue;
+        if (r[0] < state.y0 - span || r[0] > state.y0 - 1) continue;
+        if (!state.stations.has(r[2])) continue;
+        if (r[4] != null) { prevSum += r[4]; prevN++; }
+      }
+    }
+    const prevMean = prevN ? prevSum / prevN : null;
+    let deltaHtml = '<span>Sin periodo previo</span>';
+    if (prevMean != null && mean != null && prevMean !== 0) {
+      const d = ((mean - prevMean) / prevMean) * 100;
+      const arrow = d > 0 ? '▲' : '▼';
+      const cls = d > 0 ? 'up' : 'down';
+      deltaHtml = `<span class="${cls}">${arrow} ${Math.abs(d).toFixed(1)}% vs ${state.y0 - span}–${state.y0 - 1}</span>`;
+    }
+
+    const el = document.getElementById('kpis');
+    el.innerHTML = `
+      <div class="kpi"><div class="k-label">Media del periodo</div>
+        <div class="k-value">${fmt(mean)}<span class="unit">${contUnit()}</span></div>
+        <div class="k-sub">${contName()}</div></div>
+      <div class="kpi"><div class="k-label">Pico registrado</div>
+        <div class="k-value">${maxR ? fmt(maxV) : '—'}<span class="unit">${contUnit()}</span></div>
+        <div class="k-sub">${maxR ? ST[maxR[2]].n + ' · ' + MONTHS_FULL[maxR[1] - 1] + ' ' + maxR[0] : ''}</div></div>
+      <div class="kpi"><div class="k-label">Estaciones reportando</div>
+        <div class="k-value">${stSeen.size}<span class="unit">de ${state.stations.size}</span></div>
+        <div class="k-sub">${state.y0}–${state.y1}</div></div>
+      <div class="kpi"><div class="k-label">Cobertura media</div>
+        <div class="k-value">${cov != null ? fmt(cov, 0) : '—'}<span class="unit">%</span></div>
+        <div class="k-sub">horas válidas</div></div>
+      <div class="kpi"><div class="k-label">Variación</div>
+        <div class="k-value" style="font-size:15px;padding-top:3px;">${deltaHtml}</div>
+        <div class="k-sub">periodo equivalente</div></div>`;
+  }
+
+  // ================= Trend =================
+  function renderTrend(rows) {
+    const el = document.getElementById('chart-trend');
+    document.getElementById('trend-hint').textContent =
+      `${ST.length && state.stations.size === N_ST ? 'Todas las estaciones' : state.stations.size + ' estaciones'} · ${contUnit()}`;
+    if (!rows.length) return showEmpty(el);
+    const unit = contUnit();
+    if (state.trendMode === 'monthly') {
+      const agg = new Map(); // key y*12+m -> [sum,cnt]
+      for (const r of rows) {
+        if (r[4] == null) continue;
+        const k = r[0] * 12 + (r[1] - 1);
+        const a = agg.get(k) || [0, 0];
+        a[0] += r[4]; a[1]++;
+        agg.set(k, a);
+      }
+      const keys = [...agg.keys()].sort((a, b) => a - b);
+      const x = keys.map(k => `${Math.floor(k / 12)}-${String((k % 12) + 1).padStart(2, '0')}-01`);
+      const y = keys.map(k => agg.get(k)[0] / agg.get(k)[1]);
+      safeReact(el, [{
+        x, y, type: 'scatter', mode: 'lines', name: contName(),
+        line: { color: ACCENT, width: 1.6 },
+        fill: 'tozeroy', fillcolor: 'rgba(43,109,232,0.10)',
+        hovertemplate: `%{x|%b %Y}<br><b>%{y:.1f} ${unit}</b><extra></extra>`,
+      }], layout({
+        xaxis: { ...BASE_LAYOUT.xaxis, rangeslider: { thickness: 0.08 }, type: 'date' },
+        yaxis: { ...BASE_LAYOUT.yaxis, title: { text: unit, font: { size: 11 } } },
+      }), PLOT_CFG);
+    } else {
+      const agg = new Map();
+      for (const r of rows) {
+        if (r[4] == null) continue;
+        const a = agg.get(r[0]) || [0, 0];
+        a[0] += r[4]; a[1]++;
+        agg.set(r[0], a);
+      }
+      const years = [...agg.keys()].sort((a, b) => a - b);
+      const y = years.map(k => agg.get(k)[0] / agg.get(k)[1]);
+      safeReact(el, [{
+        x: years, y, type: 'bar', name: contName(),
+        marker: { color: 'rgba(43,109,232,0.75)', line: { color: ACCENT, width: 1 } },
+        hovertemplate: `%{x}<br><b>%{y:.1f} ${unit}</b><extra></extra>`,
+      }], layout({
+        xaxis: { ...BASE_LAYOUT.xaxis, dtick: 5 },
+        yaxis: { ...BASE_LAYOUT.yaxis, title: { text: unit, font: { size: 11 } } },
+        hovermode: 'x',
+      }), PLOT_CFG);
+    }
+  }
+
+  // ================= Map =================
+  let map = null, layerGroup = null, heatLayer = null;
+  function initMap() {
+    if (map) return;
+    map = L.map('map', { scrollWheelZoom: true, attributionControl: true });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+      subdomains: 'abcd', maxZoom: 18,
+    }).addTo(map);
+    map.setView([19.40, -99.13], 10);
+    layerGroup = L.layerGroup().addTo(map);
+  }
+  function stationAgg(rows) {
+    const agg = new Map(); // stIdx -> [sum,cnt,max,p95max,pctSum,pctN]
+    for (const r of rows) {
+      const a = agg.get(r[2]) || [0, 0, -Infinity, -Infinity, 0, 0];
+      if (r[4] != null) { a[0] += r[4]; a[1]++; }
+      if (r[5] != null && r[5] > a[2]) a[2] = r[5];
+      if (r[6] != null && r[6] > a[3]) a[3] = r[6];
+      if (r[7] != null) { a[4] += r[7]; a[5]++; }
+      agg.set(r[2], a);
+    }
+    return agg;
+  }
+  function renderMap(rows) {
+    initMap();
+    const agg = stationAgg(rows);
+    layerGroup.clearLayers();
+    if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+    const legend = document.getElementById('map-legend');
+    if (!agg.size) { legend.innerHTML = '<div class="title">Sin datos para esta selección</div>'; return; }
+
+    const metricIdx = state.mapMetric === 'mean' ? 0 : state.mapMetric === 'max' ? 2 : 3;
+    const vals = [];
+    const perSt = [];
+    agg.forEach((a, st) => {
+      let v = null;
+      if (metricIdx === 0 && a[1]) v = a[0] / a[1];
+      if (metricIdx === 2 && a[2] > -Infinity) v = a[2];
+      if (metricIdx === 3 && a[3] > -Infinity) v = a[3];
+      if (v != null) { vals.push(v); perSt.push({ st, v, a }); }
+    });
+    if (!perSt.length) { legend.innerHTML = '<div class="title">Sin datos</div>'; return; }
+    vals.sort((x, y) => x - y);
+    const lo = vals[0], hi = vals[vals.length - 1];
+    const norm = v => hi === lo ? 0.5 : (v - lo) / (hi - lo);
+
+    const unit = contUnit();
+    if (state.mapMode === 'points') {
+      for (const p of perSt) {
+        const s = ST[p.st];
+        const t = norm(p.v);
+        const radius = 7 + t * 13;
+        const cov = p.a[5] ? p.a[4] / p.a[5] : null;
+        L.circleMarker([s.lat, s.lon], {
+          radius, color: scaleColor(YLORD, t), weight: 1.5,
+          fillColor: scaleColor(YLORD, t), fillOpacity: 0.55,
+        }).bindPopup(`<div class="st-popup">
+            <div class="t">${s.n} <span style="color:var(--faint);font-weight:500">${s.c}</span></div>
+            <div class="a">${s.a}</div>
+            <table>
+              <tr><td>${state.mapMetric === 'mean' ? 'Media' : state.mapMetric === 'max' ? 'Máximo' : 'P95'}</td><td><b>${fmt(p.v)} ${unit}</b></td></tr>
+              <tr><td>Cobertura</td><td>${cov != null ? fmt(cov, 0) + ' %' : '—'}</td></tr>
+              <tr><td>Periodo</td><td>${state.y0}–${state.y1}</td></tr>
+            </table></div>`).addTo(layerGroup);
+      }
+    } else {
+      const pts = perSt.map(p => [ST[p.st].lat, ST[p.st].lon, norm(p.v)]);
+      heatLayer = L.heatLayer(pts, {
+        radius: 28, blur: 22, maxZoom: 12, minOpacity: 0.35,
+        gradient: { 0.0: '#ffffcc', 0.25: '#fed976', 0.5: '#fd8d3c', 0.75: '#fc4e2a', 1.0: '#bd0026' },
+      }).addTo(map);
+    }
+    const stops = YLORD.map((c, i) => `${c} ${(i / (YLORD.length - 1)) * 100}%`).join(',');
+    legend.innerHTML = `<div class="title">${contName()} · ${state.mapMetric === 'mean' ? 'media' : state.mapMetric === 'max' ? 'máximo' : 'P95'} (${unit})</div>
+      <div class="grad" style="background:linear-gradient(90deg,${stops})"></div>
+      <div class="ends"><span>${fmt(lo)}</span><span>${fmt(hi)}</span></div>`;
+  }
+
+  // ================= Stations tab =================
+  function renderStations(rows) {
+    const rankEl = document.getElementById('chart-rank');
+    const heatEl = document.getElementById('chart-styear');
+    if (!rows.length) { showEmpty(rankEl); showEmpty(heatEl); return; }
+    const unit = contUnit();
+
+    // ranking
+    const agg = stationAgg(rows);
+    const items = [];
+    agg.forEach((a, st) => { if (a[1]) items.push({ st, v: a[0] / a[1] }); });
+    items.sort((x, y) => y.v - x.v);
+    const top = items.slice(0, 15).reverse();
+    document.getElementById('rank-hint').textContent =
+      `Top ${top.length} de ${items.length} con datos · media del periodo (${unit})`;
+    safeReact(rankEl, [{
+      y: top.map(i => ST[i.st].n + ' (' + ST[i.st].c + ')'),
+      x: top.map(i => i.v),
+      type: 'bar', orientation: 'h',
+      marker: { color: top.map(i => scaleColor(YLORD, items.length > 1 ? i.v / items[0].v : 0.5)) },
+      hovertemplate: `<b>%{x:.1f} ${unit}</b><extra>%{y}</extra>`,
+    }], layout({
+      margin: { l: 190, r: 30, t: 10, b: 40 },
+      xaxis: { ...BASE_LAYOUT.xaxis, title: { text: unit, font: { size: 11 } } },
+      yaxis: { ...BASE_LAYOUT.yaxis, automargin: true },
+      hovermode: 'closest',
+    }), PLOT_CFG);
+
+    // station x year heatmap
+    const order = items.map(i => i.st); // hottest first
+    const years = [];
+    for (let y = state.y0; y <= state.y1; y++) years.push(y);
+    const cellAgg = new Map();
+    for (const r of rows) {
+      if (r[4] == null) continue;
+      const k = r[2] + '|' + r[0];
+      const a = cellAgg.get(k) || [0, 0];
+      a[0] += r[4]; a[1]++;
+      cellAgg.set(k, a);
+    }
+    const z = order.map(st => years.map(y => {
+      const a = cellAgg.get(st + '|' + y);
+      return a ? a[0] / a[1] : null;
+    }));
+    safeReact(heatEl, [{
+      z, x: years, y: order.map(st => ST[st].c),
+      type: 'heatmap', colorscale: YLORD.map((c, i) => [i / (YLORD.length - 1), c]),
+      colorbar: { title: { text: unit, font: { size: 11 } }, thickness: 12, len: 0.6 },
+      hovertemplate: `%{y} · %{x}<br><b>%{z:.1f} ${unit}</b><extra></extra>`,
+    }], layout({
+      margin: { l: 56, r: 20, t: 10, b: 44 },
+      xaxis: { ...BASE_LAYOUT.xaxis, dtick: 5 },
+      yaxis: { ...BASE_LAYOUT.yaxis, automargin: true, dtick: 1 },
+      hovermode: 'closest',
+    }), PLOT_CFG);
+  }
+
+  // ================= Seasonality tab =================
+  function renderSeasonality(rows) {
+    const myEl = document.getElementById('chart-monthyear');
+    const boxEl = document.getElementById('chart-box');
+    const seaEl = document.getElementById('chart-season');
+    if (!rows.length) { showEmpty(myEl); showEmpty(boxEl); showEmpty(seaEl); return; }
+    const unit = contUnit();
+
+    // month x year
+    const years = [];
+    for (let y = state.y0; y <= state.y1; y++) years.push(y);
+    const cellAgg = new Map();
+    for (const r of rows) {
+      if (r[4] == null) continue;
+      const k = r[1] + '|' + r[0];
+      const a = cellAgg.get(k) || [0, 0];
+      a[0] += r[4]; a[1]++;
+      cellAgg.set(k, a);
+    }
+    const z = [];
+    for (let m = 1; m <= 12; m++) z.push(years.map(y => {
+      const a = cellAgg.get(m + '|' + y);
+      return a ? a[0] / a[1] : null;
+    }));
+    safeReact(myEl, [{
+      z, x: years, y: MONTHS,
+      type: 'heatmap', colorscale: YLORD.map((c, i) => [i / (YLORD.length - 1), c]),
+      colorbar: { title: { text: unit, font: { size: 11 } }, thickness: 12, len: 0.7 },
+      hovertemplate: `%{y} %{x}<br><b>%{z:.1f} ${unit}</b><extra></extra>`,
+    }], layout({
+      margin: { l: 56, r: 20, t: 10, b: 44 },
+      xaxis: { ...BASE_LAYOUT.xaxis, dtick: 5 },
+      yaxis: { ...BASE_LAYOUT.yaxis },
+      hovermode: 'closest',
+    }), PLOT_CFG);
+
+    // boxplot by month
+    const byMonth = Array.from({ length: 12 }, () => []);
+    for (const r of rows) if (r[4] != null) byMonth[r[1] - 1].push(r[4]);
+    safeReact(boxEl, [{
+      y: byMonth.flatMap((arr, m) => arr.map(v => v)),
+      x: byMonth.flatMap((arr, m) => arr.map(() => MONTHS[m])),
+      type: 'box', boxpoints: false,
+      marker: { color: ACCENT }, line: { color: ACCENT },
+      fillcolor: 'rgba(43,109,232,0.12)',
+      hovertemplate: `<b>%{y:.1f} ${unit}</b><extra>%{x}</extra>`,
+    }], layout({
+      yaxis: { ...BASE_LAYOUT.yaxis, title: { text: unit, font: { size: 11 } } },
+      hovermode: 'closest',
+    }), PLOT_CFG);
+
+    // by season
+    const seaAgg = Array.from({ length: 4 }, () => [0, 0]);
+    for (const r of rows) {
+      if (r[4] == null) continue;
+      const s = SEASON_OF[r[1] - 1];
+      seaAgg[s][0] += r[4]; seaAgg[s][1]++;
+    }
+    safeReact(seaEl, [{
+      x: SEASONS,
+      y: seaAgg.map(a => a[1] ? a[0] / a[1] : null),
+      type: 'bar',
+      marker: { color: ['#9ec4f5', '#7fb069', '#f2b544', '#d97b4f'] },
+      hovertemplate: `<b>%{y:.1f} ${unit}</b><extra>%{x}</extra>`,
+    }], layout({
+      yaxis: { ...BASE_LAYOUT.yaxis, title: { text: unit, font: { size: 11 } } },
+      hovermode: 'closest',
+    }), PLOT_CFG);
+  }
+
+  // ================= Quality tab =================
+  function renderQuality(rows) {
+    const covEl = document.getElementById('chart-coverage');
+    const heatEl = document.getElementById('chart-covheat');
+    if (!rows.length) { showEmpty(covEl); showEmpty(heatEl); return; }
+
+    const byYear = new Map();
+    for (const r of rows) {
+      if (r[7] == null) continue;
+      const a = byYear.get(r[0]) || [0, 0];
+      a[0] += r[7]; a[1]++;
+      byYear.set(r[0], a);
+    }
+    const years = [...byYear.keys()].sort((a, b) => a - b);
+    safeReact(covEl, [{
+      x: years, y: years.map(y => byYear.get(y)[0] / byYear.get(y)[1]),
+      type: 'scatter', mode: 'lines',
+      line: { color: '#2b8cbe', width: 1.8 },
+      fill: 'tozeroy', fillcolor: 'rgba(43,140,190,0.10)',
+      hovertemplate: '%{x}<br><b>%{y:.0f}%</b><extra></extra>',
+    }], layout({
+      yaxis: { ...BASE_LAYOUT.yaxis, range: [0, 105], ticksuffix: '%' },
+      xaxis: { ...BASE_LAYOUT.xaxis, dtick: 5 },
+    }), PLOT_CFG);
+
+    // heatmap station x year coverage
+    const agg = stationAgg(rows);
+    const order = [...agg.keys()].sort((a, b) => {
+      const ma = agg.get(a)[4] / (agg.get(a)[5] || 1), mb = agg.get(b)[4] / (agg.get(b)[5] || 1);
+      return mb - ma;
+    });
+    const cellAgg = new Map();
+    for (const r of rows) {
+      if (r[7] == null) continue;
+      const k = r[2] + '|' + r[0];
+      const a = cellAgg.get(k) || [0, 0];
+      a[0] += r[7]; a[1]++;
+      cellAgg.set(k, a);
+    }
+    const hy = [];
+    for (let y = state.y0; y <= state.y1; y++) hy.push(y);
+    const z = order.map(st => hy.map(y => {
+      const a = cellAgg.get(st + '|' + y);
+      return a ? a[0] / a[1] : null;
+    }));
+    safeReact(heatEl, [{
+      z, x: hy, y: order.map(st => ST[st].c),
+      type: 'heatmap',
+      colorscale: GNBU.map((c, i) => [i / (GNBU.length - 1), c]),
+      zmin: 0, zmax: 100,
+      colorbar: { title: { text: '%', font: { size: 11 } }, thickness: 12, len: 0.6 },
+      hovertemplate: '%{y} · %{x}<br><b>%{z:.0f}%</b><extra></extra>',
+    }], layout({
+      margin: { l: 56, r: 20, t: 10, b: 44 },
+      xaxis: { ...BASE_LAYOUT.xaxis, dtick: 5 },
+      yaxis: { ...BASE_LAYOUT.yaxis, automargin: true, dtick: 1 },
+      hovermode: 'closest',
+    }), PLOT_CFG);
+  }
+
+  function showEmpty(el) {
+    Plotly.purge(el);
+    el.innerHTML = '<div class="empty"><strong>Sin datos</strong>Ajusta los filtros para ver resultados.</div>';
+  }
+
+  // ================= Update orchestration =================
+  const renderedOnce = { tendencias: false, mapa: false, estaciones: false, estacionalidad: false, calidad: false };
+  let activeTab = 'tendencias';
+  function renderTab(tab, rows) {
+    // Defer to next frame: ensures the panel is laid out (non-zero width)
+    // before Plotly measures the container. Prevents getImageData(0) errors.
+    requestAnimationFrame(() => {
+      if (tab === 'tendencias') renderTrend(rows);
+      else if (tab === 'mapa') { renderMap(rows); setTimeout(() => map && map.invalidateSize(), 60); }
+      else if (tab === 'estaciones') renderStations(rows);
+      else if (tab === 'estacionalidad') renderSeasonality(rows);
+      else if (tab === 'calidad') renderQuality(rows);
+      renderedOnce[tab] = true;
+    });
+  }
+  function updateAll() {
+    const rows = filtered();
+    updateKPIs(rows);
+    renderTab(activeTab, rows);
+  }
+
+  // ================= UI wiring =================
+  // contaminant pills
+  const pillsEl = document.getElementById('cont-pills');
+  CT.forEach((c, i) => {
+    const b = document.createElement('button');
+    b.className = 'pill' + (i === state.cont ? ' active' : '');
+    b.textContent = c.c;
+    b.title = c.n + ' (' + c.u + ')';
+    b.addEventListener('click', () => {
+      state.cont = i;
+      pillsEl.querySelectorAll('.pill').forEach((p, j) => p.classList.toggle('active', j === i));
+      updateAll();
+    });
+    pillsEl.appendChild(b);
+  });
+
+  // year slider
+  const slider = document.getElementById('year-slider');
+  noUiSlider.create(slider, {
+    start: [state.y0, state.y1],
+    connect: true, step: 1,
+    range: { min: D.yearMin, max: D.yearMax },
+  });
+  const y0l = document.getElementById('y0-label'), y1l = document.getElementById('y1-label');
+  function paintYears() { y0l.textContent = state.y0; y1l.textContent = state.y1; }
+  slider.noUiSlider.on('update', (vals) => {
+    state.y0 = Math.round(vals[0]); state.y1 = Math.round(vals[1]);
+    paintYears();
+  });
+  // 'set' fires on drag-release AND on programmatic .set(); debounce so a drag
+  // only re-renders once the values settle.
+  let sliderTimer = null;
+  slider.noUiSlider.on('set', () => {
+    clearTimeout(sliderTimer);
+    sliderTimer = setTimeout(updateAll, 160);
+  });
+  paintYears();
+
+  // station dropdown
+  const stToggle = document.getElementById('st-toggle');
+  const stPanel = document.getElementById('st-panel');
+  const stList = document.getElementById('st-list');
+  const stText = document.getElementById('st-toggle-text');
+  function paintStText() {
+    const n = state.stations.size;
+    stText.textContent = n === N_ST ? `Todas (${N_ST})` : n === 0 ? 'Ninguna' : `${n} de ${N_ST}`;
+  }
+  ST.forEach((s, i) => {
+    const label = document.createElement('label');
+    label.className = 'st-item';
+    label.innerHTML = `<input type="checkbox" checked data-i="${i}"><span class="code">${s.c}</span><span class="name">${s.n}</span>`;
+    label.querySelector('input').addEventListener('change', (e) => {
+      if (e.target.checked) state.stations.add(i); else state.stations.delete(i);
+      paintStText(); updateAll();
+    });
+    stList.appendChild(label);
+  });
+  document.getElementById('st-all').addEventListener('click', () => {
+    state.stations = new Set(Array.from({ length: N_ST }, (_, i) => i));
+    stList.querySelectorAll('input').forEach(cb => cb.checked = true);
+    paintStText(); updateAll();
+  });
+  document.getElementById('st-none').addEventListener('click', () => {
+    state.stations = new Set();
+    stList.querySelectorAll('input').forEach(cb => cb.checked = false);
+    paintStText(); updateAll();
+  });
+  document.getElementById('st-search').addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase();
+    stList.querySelectorAll('.st-item').forEach(item => {
+      item.style.display = item.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+  stToggle.addEventListener('click', (e) => { e.stopPropagation(); stPanel.classList.toggle('open'); });
+  document.addEventListener('click', (e) => {
+    if (!stPanel.contains(e.target) && e.target !== stToggle) stPanel.classList.remove('open');
+  });
+
+  // reset
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    state.cont = CT.findIndex(c => c.c === 'NOX') >= 0 ? CT.findIndex(c => c.c === 'NOX') : 0;
+    state.y0 = D.yearMin; state.y1 = D.yearMax;
+    state.stations = new Set(Array.from({ length: N_ST }, (_, i) => i));
+    pillsEl.querySelectorAll('.pill').forEach((p, j) => p.classList.toggle('active', j === state.cont));
+    slider.noUiSlider.set([state.y0, state.y1]);
+    stList.querySelectorAll('input').forEach(cb => cb.checked = true);
+    paintStText();
+    updateAll();
+  });
+
+  // segmented controls
+  document.getElementById('trend-seg').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    state.trendMode = b.dataset.mode;
+    e.currentTarget.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+    if (activeTab === 'tendencias') renderTab('tendencias', filtered());
+  });
+  document.getElementById('map-metric-seg').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    state.mapMetric = b.dataset.metric;
+    e.currentTarget.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+    if (activeTab === 'mapa') renderTab('mapa', filtered());
+  });
+  document.getElementById('map-mode-seg').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    state.mapMode = b.dataset.mode;
+    e.currentTarget.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+    if (activeTab === 'mapa') renderTab('mapa', filtered());
+  });
+
+  // tabs
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + btn.dataset.tab));
+      activeTab = btn.dataset.tab;
+      renderTab(activeTab, filtered());
+    });
+  });
+
+  // go
+  paintStText();
+  updateAll();
+})();
+</script>
+</body>
+</html>

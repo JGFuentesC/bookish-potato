@@ -59,6 +59,14 @@ credentials/
 .opencode/
 
 # =============================================================================
+# Graphify — artefactos generados, se versiona el grafo pero no la cache
+# =============================================================================
+graphify-out/cache/
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/graph_preview.png
+
+# =============================================================================
 # OS
 # =============================================================================
 .DS_Store
