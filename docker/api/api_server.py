@@ -11,16 +11,25 @@ Endpoints:
 import os
 
 from asyncpg import create_pool
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://rama:rama@localhost:5433/rama")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable is required")
+
+CONT_VALIDOS = frozenset({"CO", "NO", "NO2", "NOX", "O3", "PM10", "PM25", "PMCO", "SO2"})
 
 app = FastAPI(title="RAMA API", docs_url=None, redoc_url=None)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "file://",
+        "null",
+    ],
     allow_methods=["GET"],
     allow_headers=["*"],
 )
@@ -52,6 +61,12 @@ async def get_data(
     to: int = Query(..., alias="to", description="Anio fin"),
     stations: str | None = Query(None, description="Lista separada por comas (ej: TLA,MER)"),
 ):
+    cont = cont.strip().upper()
+    if cont not in CONT_VALIDOS:
+        raise HTTPException(status_code=400, detail=f"Contaminante invalido: {cont}")
+    if fr > to:
+        raise HTTPException(status_code=400, detail="from debe ser <= to")
+
     query = """
         SELECT
             dim_fecha, dim_anio, dim_mes, dim_nombre_mes, dim_trimestre,

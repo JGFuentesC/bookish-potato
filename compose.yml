@@ -3,16 +3,16 @@ services:
     image: pgvector/pgvector:pg16
     container_name: rama-postgres
     environment:
-      POSTGRES_USER: rama
-      POSTGRES_PASSWORD: rama
-      POSTGRES_DB: rama
+      POSTGRES_USER: ${POSTGRES_USER:-rama}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rama}
+      POSTGRES_DB: ${POSTGRES_DB:-rama}
     ports:
-      - "5433:5432"
+      - "${PG_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rama -d rama"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rama} -d ${POSTGRES_DB:-rama}"]
       interval: 3s
       timeout: 3s
       retries: 10
@@ -23,9 +23,9 @@ services:
       context: ./docker/api
     container_name: rama-api
     environment:
-      DATABASE_URL: postgresql://rama:rama@postgres:5432/rama
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-rama}:${POSTGRES_PASSWORD:-rama}@postgres:5432/${POSTGRES_DB:-rama}}
     ports:
-      - "8080:8000"
+      - "${API_PORT:-8080}:8000"
     depends_on:
       postgres:
         condition: service_healthy

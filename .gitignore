@@ -48,6 +48,7 @@ data/
 # =============================================================================
 .env
 .env.*
+!.env.example
 *.local
 *.secret
 secrets/
@@ -62,6 +63,7 @@ credentials/
 # Graphify — artefactos generados, se versiona el grafo pero no la cache
 # =============================================================================
 graphify-out/cache/
+graphify-out/20*/
 graphify-out/.graphify_python
 graphify-out/.graphify_root
 graphify-out/graph_preview.png

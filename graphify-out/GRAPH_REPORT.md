@@ -1,12 +1,18 @@
-# Graph Report - .  (2026-07-15)
+# Graph Report - bookish-potato  (2026-07-22)
 
 ## Corpus Check
-- Corpus is ~5,180 words - fits in a single context window. You may not need a graph.
+- 20 files · ~16,646 words
+- Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 86 nodes · 134 edges · 13 communities (10 shown, 3 thin omitted)
+- 160 nodes · 215 edges · 13 communities (9 shown, 4 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
 - Token cost: 0 input · 0 output
+
+## Graph Freshness
+- Built from commit: `56532e4c`
+- Run `git rev-parse HEAD` and compare to check if the graph is stale.
+- Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - Great Expectations Suite
@@ -25,86 +31,76 @@
 
 ## God Nodes (most connected - your core abstractions)
 1. `ResultadoContaminante` - 11 edges
-2. `analizar_contaminante()` - 8 edges
-3. `generar_html()` - 8 edges
-4. `ejecutar_validacion()` - 8 edges
-5. `ConfigPipeline` - 7 edges
-6. `procesar_archivo()` - 7 edges
-7. `ejecutar()` - 7 edges
-8. `grafico_serie_temporal()` - 6 edges
-9. `PruebaHipotesis` - 5 edges
-10. `shapiro_test()` - 5 edges
+2. `Arquitectura Medallon SQL — RAMA (PostgreSQL)` - 11 edges
+3. `RAMA — Datos historicos de calidad del aire (CDMX)` - 9 edges
+4. `analizar_contaminante()` - 8 edges
+5. `generar_html()` - 8 edges
+6. `ejecutar_validacion()` - 8 edges
+7. `ConfigPipeline` - 7 edges
+8. `procesar_archivo()` - 7 edges
+9. `ejecutar()` - 7 edges
+10. `main()` - 7 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `shapiro_test()` --references--> `PruebaHipotesis`  [EXTRACTED]
-  audit.py → audit.py  _Bridges community 4 → community 7_
-- `AuditoriaReporte` --inherits--> `BaseModel`  [EXTRACTED]
-  audit.py →   _Bridges community 4 → community 2_
-- `ResultadoContaminante` --inherits--> `BaseModel`  [EXTRACTED]
-  audit.py →   _Bridges community 4 → community 1_
-- `analizar_contaminante()` --references--> `ResultadoContaminante`  [EXTRACTED]
-  audit.py → audit.py  _Bridges community 1 → community 7_
-- `grafico_boxplot_mensual()` --references--> `ResultadoContaminante`  [EXTRACTED]
-  audit.py → audit.py  _Bridges community 1 → community 2_
+- `ConfigPipeline` --inherits--> `BaseModel`  [EXTRACTED]
+  curate.py →   _Bridges community 3 → community 5_
 
 ## Import Cycles
 - None detected.
 
-## Communities (13 total, 3 thin omitted)
+## Communities (13 total, 4 thin omitted)
 
 ### Community 0 - "Great Expectations Suite"
 Cohesion: 0.18
 Nodes (16): Checkpoint, EphemeralDataContext, ExpectationSuite, cargar_dataset(), crear_contexto(), crear_suite(), ejecutar_validacion(), main() (+8 more)
 
 ### Community 1 - "Plotly Control Charts"
-Cohesion: 0.21
-Nodes (9): grafico_bell_curve(), grafico_serie_temporal(), Agrega las bandas de control 2-sigma y 3-sigma a la figura., Serie de tiempo con bandas de control, media y tendencia., Histograma con curva normal teorica y bandas sigma (bell curve)., Coeficiente de variacion., ResultadoContaminante, _trazas_control() (+1 more)
+Cohesion: 0.11
+Nodes (30): analizar_contaminante(), anderson_darling_test(), AuditoriaReporte, generar_html(), grafico_bell_curve(), grafico_boxplot_mensual(), grafico_serie_temporal(), main() (+22 more)
 
 ### Community 2 - "Audit HTML Generator"
-Cohesion: 0.31
-Nodes (9): AuditoriaReporte, generar_html(), grafico_boxplot_mensual(), main(), Auditoria de calidad de datos RAMA.  Genera cartas de control (estilo bell curve, Boxplots mensuales para detectar estacionalidad., HTML con tarjetas de metricas y pruebas de hipotesis., Construye la SPA HTML completa con navegacion por pestanas. (+1 more)
+Cohesion: 0.10
+Nodes (20): 1. Descargar datos, 2. Curar y consolidar, 3. Auditoria estadistica, 4. Validacion con Great Expectations, 5. Generar tabla agregada mensual, 6. Dashboard interactivo, 7. Catalogo de estaciones, API REST (+12 more)
 
 ### Community 3 - "Pydantic Data Models"
 Cohesion: 0.33
 Nodes (5): Any, FilaRAMA, BaseModel, Una fila del dataset curado. Representa una medicion puntual., date
 
 ### Community 4 - "Hypothesis Testing"
-Cohesion: 0.33
-Nodes (7): anderson_darling_test(), mann_kendall_test(), PruebaHipotesis, BaseModel, Mann-Kendall: tendencia monotona., Anderson-Darling: normalidad., ndarray
+Cohesion: 0.11
+Nodes (18): 10. Comparativa: SQL vs Python, 1. Diagrama de arquitectura, 2. Docker Compose, 3. Capa Bronze — `bronze.rama_horaria`, 4. Capa Silver — `silver.rama_horaria_validada`, 5. Capa Gold — `gold.rama_mensual_bi`, 6. Indices, 7. API (FastAPI + asyncpg) (+10 more)
 
 ### Community 5 - "Curation Validators"
-Cohesion: 0.33
-Nodes (3): Curacion de datos historicos RAMA (Red Automatica de Monitoreo Atmosferico).  Le, Valida que el DataFrame cumpla con el esquema esperado usando pydantic., validar_dataframe()
+Cohesion: 0.12
+Nodes (19): ConfigPipeline, corregir_hora(), ejecutar(), extraer_contaminante(), generar_metadata(), MetadataRAMA, procesar_archivo(), DataFrame (+11 more)
 
 ### Community 6 - "Curation Pipeline"
-Cohesion: 0.40
-Nodes (6): ejecutar(), generar_metadata(), MetadataRAMA, Genera metadata del dataset curado., Ejecuta el pipeline de curacion completo. Retorna metadata del resultado., Metadata del dataset curado.
+Cohesion: 0.33
+Nodes (11): export_bronze_csv(), load_bronze(), main(), psql_copy(), psql_file(), Path, Bootstrap: exporta datos horarios del Parquet a PostgreSQL y ejecuta las transfo, Ejecuta SQL via psql en el contenedor. (+3 more)
 
 ### Community 7 - "Statistical Analysis"
-Cohesion: 0.40
-Nodes (5): analizar_contaminante(), DataFrame, Shapiro-Wilk: normalidad. Usa muestra aleatoria si n > 5000., Ejecuta el analisis completo para un contaminante., shapiro_test()
+Cohesion: 0.33
+Nodes (4): build_station_frame(), main(), DataFrame, Generate rama_mensual.parquet — BI-ready monthly exposure table for Looker Studi
 
-### Community 8 - "XLS Processing"
-Cohesion: 0.50
-Nodes (5): corregir_hora(), procesar_archivo(), DataFrame, HORA 24 se usa como medianoche del dia siguiente.     Convertimos HORA=24 -> hor, Lee un .xls, lo transforma a formato long (tidy) y reemplaza el sentinel.
-
-### Community 10 - "File I/O & Extraction"
-Cohesion: 0.50
-Nodes (3): extraer_contaminante(), Extrae el codigo de contaminante del nombre de archivo (ej: 1986CO.xls -> CO)., Path
+### Community 9 - "Pipeline Config"
+Cohesion: 0.47
+Nodes (5): fetch_station_page(), main(), parse_station_info(), Scrape RAMA station coordinates from SEDEMA detail pages., Parse the station detail page. The table structure is:     <tr><th>Domicilio</th
 
 ## Knowledge Gaps
-- **2 isolated node(s):** `download_rama.sh script`, `rama-curation`
+- **31 isolated node(s):** `download_rama.sh script`, `rama-curation`, `Datos`, `Estructura`, `1. Descargar datos` (+26 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **3 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **4 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ResultadoContaminante` connect `Plotly Control Charts` to `Audit HTML Generator`, `Hypothesis Testing`, `Statistical Analysis`?**
-  _High betweenness centrality (0.046) - this node is a cross-community bridge._
-- **Why does `FilaRAMA` connect `Pydantic Data Models` to `Curation Validators`?**
-  _High betweenness centrality (0.039) - this node is a cross-community bridge._
-- **Why does `ConfigPipeline` connect `Pipeline Config` to `File I/O & Extraction`, `Pydantic Data Models`, `Curation Validators`, `Curation Pipeline`?**
-  _High betweenness centrality (0.032) - this node is a cross-community bridge._
-- **What connects `download_rama.sh script`, `rama-curation` to the rest of the system?**
-  _2 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **What connects `download_rama.sh script`, `rama-curation`, `Datos` to the rest of the system?**
+  _31 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Plotly Control Charts` be split into smaller, more focused modules?**
+  _Cohesion score 0.10873440285204991 - nodes in this community are weakly interconnected._
+- **Should `Audit HTML Generator` be split into smaller, more focused modules?**
+  _Cohesion score 0.09523809523809523 - nodes in this community are weakly interconnected._
+- **Should `Hypothesis Testing` be split into smaller, more focused modules?**
+  _Cohesion score 0.10526315789473684 - nodes in this community are weakly interconnected._
+- **Should `Curation Validators` be split into smaller, more focused modules?**
+  _Cohesion score 0.12333333333333334 - nodes in this community are weakly interconnected._

@@ -18,17 +18,33 @@ Fuente: [aire.cdmx.gob.mx](https://www.aire.cdmx.gob.mx) — Datos abiertos SEDE
 
 ```
 .
-├── download_rama.sh     # Descarga paralela de ZIPs anuales
-├── curate.py            # Pipeline de curacion (XLS -> Parquet tidy)
-├── audit.py             # Auditoria estadistica (SPA con Plotly)
-├── ge_audit.py          # Great Expectations (validacion declarativa)
-├── pyproject.toml       # Dependencias (uv)
-├── uv.lock              # Lockfile reproducible
-├── scripts/             # Scripts de la capa de exposure y dashboard
+├── download_rama.sh        # Descarga paralela de ZIPs anuales
+├── curate.py               # Pipeline de curacion (XLS -> Parquet tidy)
+├── audit.py                # Auditoria estadistica (SPA con Plotly)
+├── ge_audit.py             # Great Expectations (validacion declarativa)
+├── pyproject.toml          # Dependencias (uv)
+├── uv.lock                 # Lockfile reproducible
+├── compose.yml             # Docker Compose: postgres + api (FastAPI)
+├── .env.example            # Template de variables de entorno
+├── docker/
+│   ├── api/
+│   │   ├── Dockerfile      # Imagen Python 3.13-slim no-root
+│   │   └── api_server.py   # FastAPI asyncpg (GET /api/data, /health)
+│   └── postgres/init/      # Init SQL para arquitectura medallon
+│       ├── 01_schemas.sql
+│       ├── 02_tables_bronze.sql
+│       ├── 03_tables_silver.sql
+│       ├── 04_tables_gold.sql
+│       ├── 05_load_catalogos.sql
+│       └── 06_indexes.sql
+├── scripts/
 │   ├── scrape_stations.py       # Scraper de coordenadas SEDEMA
 │   ├── generate_exposure.py     # Generador de tabla agregada mensual
 │   ├── build_dashboard.py       # Generador del dashboard HTML
-│   └── dashboard_template.html  # Plantilla del dashboard
+│   ├── dashboard_template.html  # Plantilla del dashboard
+│   ├── init_postgres.py         # Bootstrap: Parquet → PostgreSQL
+│   ├── transform_silver.sql     # Bronze → Silver (validaciones)
+│   └── transform_gold.sql       # Silver → Gold (agregacion mensual)
 └── data/                # (ignorado por git)
     ├── raw/
     │   ├── zips/        # Archivos originales descargados
@@ -141,6 +157,61 @@ y agrega a nivel mensual por estacion y contaminante. Genera:
 | mt_dias_esperados | i8 | Dias del mes |
 | mt_pct_datos | f32 | % completitud (0–100) |
 
+## Arquitectura medallon (PostgreSQL)
+
+Ademas del pipeline Python, los datos se pueden cargar en PostgreSQL con
+arquitectura medallon (Bronze → Silver → Gold) para consultas SQL directas,
+concurrencia y conexion con herramientas BI.
+
+### Docker Compose
+
+```bash
+docker compose up -d
+```
+
+Inicia dos servicios:
+- `postgres` — pgvector/pgvector:pg16 en `:5433` (`rama`/`rama`/`rama`)
+- `api` — FastAPI + asyncpg en `:8080`
+
+Variables configurables via `.env` (ver `.env.example`).
+
+### Bootstrap de datos
+
+```bash
+uv run python scripts/init_postgres.py
+```
+
+Exporta `rama_historica.parquet` a CSV, carga 55M filas en Bronze mediante
+`COPY`, ejecuta las transformaciones SQL y crea indices. Resultado:
+
+| Capa | Tabla | Filas | Descripcion |
+|---|---|---|---|
+| Bronze | `bronze.rama_horaria` | 55.3M | Datos horarios crudos, sin validaciones |
+| Silver | `silver.rama_horaria_validada` | 55.3M | Con flags de calidad (rango fisico, hora24) |
+| Gold | `gold.rama_mensual_bi` | 64.9K | Agregacion mensual, 24 columnas dim_*/mt_* |
+
+### API REST
+
+```bash
+# O3, 2015-2025, todas las estaciones
+curl "http://localhost:8080/api/data?cont=O3&from=2015&to=2025"
+
+# PM10, 2000-2020, solo 3 estaciones
+curl "http://localhost:8080/api/data?cont=PM10&from=2000&to=2020&stations=TLA,MER,UIZ"
+```
+
+Validacion de entrada: contaminante contra catalogo, `from <= to`, SQL injection
+prevenido con queries parametrizadas (`$1`, `$2`, ...).
+
+### Indices y rendimiento
+
+7 indices B-tree compuestos + 1 indice parcial en Silver (`WHERE flag_valido`).
+Consulta tipica del dashboard (O3, 2015-2025):
+
+```
+Execution Time: 3.994 ms  (3990 filas, 64.9K totales)
+```
+
 ### 6. Dashboard interactivo
 
 Abre `data/exposure/rama_dashboard.html` en el navegador (archivo autocontenido,
@@ -156,6 +227,14 @@ solo requiere internet para CDN de Plotly, Leaflet y tiles cartograficos).
   Estaciones (ranking + heatmap), Estacionalidad (mes×año + boxplots),
   Calidad de datos (cobertura)
 - **Responsive:** adaptado a escritorio y movil
+
+**Modo de datos dual:** El dashboard incluye un toggle en la barra superior
+que permite alternar entre:
+- **Archivo** (default) — datos embebidos en el HTML, sin dependencias externas
+- **Servidor** — consulta la API PostgreSQL en `http://localhost:8080` via
+  `fetch()` con AbortController (timeout 5s health, 8s datos)
+
+Si el servidor no esta disponible, el dashboard permanece en modo Archivo.
 
 **Regenerar** tras actualizar datos curados:
 
@@ -173,6 +252,21 @@ Obtiene coordenadas (lat/lon) de las 54 estaciones RAMA desde las paginas de
 detalle de SEDEMA y las guarda en `data/exposure/stations_catalog.json`.
 Las 35 estaciones activas se obtienen por scraping; las 19 historicas tienen
 coordenadas documentadas.
+
+## Seguridad
+
+- Las credenciales de base de datos se configuran via `.env` (gitignorado)
+  con defaults seguros para desarrollo local. Ver `.env.example`.
+- La API valida contaminantes contra un catalogo fijo (`CONT_VALIDOS`)
+  y rechaza parametros invalidos con HTTP 400.
+- SQL injection prevenido con queries parametrizadas (`$1`, `$2`, ...).
+- El contenedor API ejecuta como usuario no-root (`app`, uid 1001).
+- CORS restringido a `localhost:8080` y `file://`.
+- Puerto PostgreSQL (5433) expuesto solo en localhost; en entornos
+  compartidos, cambiarlo a `127.0.0.1:5433:5432` en compose.yml.
+- Los scripts SQL de inicializacion crean 3 esquemas aislados
+  (bronze/silver/gold) que separan logicamente datos crudos, validados
+  y agregados.
 
 ## Licencia
 

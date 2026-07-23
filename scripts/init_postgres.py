@@ -122,7 +122,7 @@ def main():
     BRONZE_CSV.unlink(missing_ok=True)
 
     print("\nDone. PostgreSQL medallon ready.")
-    print(f"  Postgres: localhost:5433  (user: rama, pass: rama, db: rama)")
+    print(f"  Postgres: localhost:5433  (db: rama)")
     print(f"  API:      http://localhost:8080/api/data?cont=NOX&from=2015&to=2025")
     print("  Dashboard: abre data/exposure/rama_dashboard.html (modo Servidor)")
 

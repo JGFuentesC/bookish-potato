@@ -25,8 +25,88 @@
     "semantic_hash": "baf651a725fd5ef48d40401fdaeeb890"
   },
   "README.md": {
-    "mtime": 1784174260.3021681,
-    "ast_hash": "6c33e6fb03a27c5845e97afbcd8a7cac",
-    "semantic_hash": "6c33e6fb03a27c5845e97afbcd8a7cac"
+    "mtime": 1784778055.9743948,
+    "ast_hash": "081ed7f04caa8dc1c56a3f562f69195d",
+    "semantic_hash": ""
+  },
+  "docker/api/api_server.py": {
+    "mtime": 1784777984.1615412,
+    "ast_hash": "c46a240689d0ab395f192c7c6d6b49b4",
+    "semantic_hash": ""
+  },
+  "docker/postgres/init/01_schemas.sql": {
+    "mtime": 1784776057.61641,
+    "ast_hash": "7d1effe8c6425452fad389f485c1372b",
+    "semantic_hash": ""
+  },
+  "docker/postgres/init/02_tables_bronze.sql": {
+    "mtime": 1784776059.9993107,
+    "ast_hash": "8ab9167f59e53919d82025e6327756e5",
+    "semantic_hash": ""
+  },
+  "docker/postgres/init/03_tables_silver.sql": {
+    "mtime": 1784776063.3229156,
+    "ast_hash": "c69056372d0664a65133efb65a44e8c1",
+    "semantic_hash": ""
+  },
+  "docker/postgres/init/04_tables_gold.sql": {
+    "mtime": 1784776068.840213,
+    "ast_hash": "d8cec38b294fd2bd819fb600e821c793",
+    "semantic_hash": ""
+  },
+  "docker/postgres/init/05_load_catalogos.sql": {
+    "mtime": 1784776085.344072,
+    "ast_hash": "77078fcbddb9639b577e69ec4084000f",
+    "semantic_hash": ""
+  },
+  "docker/postgres/init/06_indexes.sql": {
+    "mtime": 1784776091.545619,
+    "ast_hash": "653581d850d9c1a569f2568f44e80f2c",
+    "semantic_hash": ""
+  },
+  "scripts/build_dashboard.py": {
+    "mtime": 1784775026.055837,
+    "ast_hash": "99c4b0dc00b7484d954af9dd3d64db4c",
+    "semantic_hash": ""
+  },
+  "scripts/generate_exposure.py": {
+    "mtime": 1784775026.053536,
+    "ast_hash": "9ed0aac97ed4910eb35f920ae1bc4d34",
+    "semantic_hash": ""
+  },
+  "scripts/init_postgres.py": {
+    "mtime": 1784777992.9650164,
+    "ast_hash": "9440cc49db17331d5fe9645e3997fca1",
+    "semantic_hash": ""
+  },
+  "scripts/scrape_stations.py": {
+    "mtime": 1784775026.0537808,
+    "ast_hash": "56767b0a24e622d7b5b3327bb285d351",
+    "semantic_hash": ""
+  },
+  "scripts/transform_gold.sql": {
+    "mtime": 1784777334.193747,
+    "ast_hash": "2b411c936e71ae1fe6271e1b68dcb121",
+    "semantic_hash": ""
+  },
+  "scripts/transform_silver.sql": {
+    "mtime": 1784777062.4629323,
+    "ast_hash": "31e892c14d203b28f5469171329b14d5",
+    "semantic_hash": ""
+  },
+  "compose.yml": {
+    "mtime": 1784777975.294338,
+    "ast_hash": "140bf8467cf5f263f1d0147efdb2ff85",
+    "semantic_hash": ""
+  },
+  "docs/MEDALLON_SQL.md": {
+    "mtime": 1784777638.6010947,
+    "ast_hash": "dc03c0c4d169ae350ff87ecb1aa67153",
+    "semantic_hash": ""
+  },
+  "scripts/dashboard_template.html": {
+    "mtime": 1784776495.8979344,
+    "ast_hash": "fd67e6ccf6f08be905e6fe917bc0627a",
+    "semantic_hash": ""
   }
 }
