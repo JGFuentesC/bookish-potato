@@ -248,6 +248,24 @@
     .year-slider-wrap { width: 100%; min-width: 200px; }
     .filter-group { flex: 1 1 auto; }
   }
+  .src-toggle {
+    display: inline-flex; gap: 2px; background: #eceef1; border-radius: 7px; padding: 2px; margin-left: 8px;
+  }
+  .src-toggle button {
+    border: 1px solid transparent; background: transparent; border-radius: 5px;
+    padding: 5px 12px; font-family: var(--font); font-size: 12px; font-weight: 500;
+    color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 5px;
+  }
+  .src-toggle button.active { background: var(--surface); color: var(--ink); font-weight: 600; border-color: var(--border); }
+  .src-toggle button.loading { opacity: 0.6; pointer-events: none; }
+  .src-toggle button .src-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .src-dot.file-mode { background: var(--accent); }
+  .src-dot.server-off { background: var(--faint); }
+  .src-dot.server-on { background: var(--ok); }
+
+  @keyframes src-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .src-dot.fetching { background: var(--accent); animation: src-pulse 0.9s ease-in-out infinite; }
+
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
   }
@@ -267,6 +285,14 @@
     <button class="tab-btn" data-tab="estacionalidad" role="tab">Estacionalidad</button>
     <button class="tab-btn" data-tab="calidad" role="tab">Calidad de datos</button>
   </nav>
+  <div class="src-toggle" id="src-toggle">
+    <button data-src="file" class="active" title="Datos embebidos en el HTML">
+      <span class="src-dot file-mode"></span> Archivo
+    </button>
+    <button data-src="server" id="src-server-btn" title="Conectar a PostgreSQL via API">
+      <span class="src-dot server-off" id="src-server-dot"></span> Servidor
+    </button>
+  </div>
 </header>
 
 <section class="filters">
@@ -462,16 +488,67 @@
     mapMetric: 'mean', mapMode: 'points',
   };
 
-  function filtered() {
-    const out = [];
-    for (let i = 0; i < ROWS.length; i++) {
-      const r = ROWS[i];
-      if (r[3] !== state.cont) continue;
-      if (r[0] < state.y0 || r[0] > state.y1) continue;
-      if (!state.stations.has(r[2])) continue;
-      out.push(r);
+  // ---- data source mode ('file' | 'server') ----
+  let dataMode = 'file';
+  let serverRows = [];           // rows fetched from PG, in compact format
+  let serverFetching = false;
+  const SERVER_URL = 'http://localhost:8080';
+  const stByCode = {}; ST.forEach((s, i) => stByCode[s.c] = i);
+  const ctByCode = {}; CT.forEach((c, i) => ctByCode[c.c] = i);
+
+  function setSourceDot(state) {
+    const d = document.getElementById('src-server-dot');
+    d.className = 'src-dot ' + state;
+  }
+
+  async function fetchServerData() {
+    serverFetching = true;
+    setSourceDot('fetching');
+    const stList = state.stations.size === N_ST ? '' : [...state.stations].map(i => ST[i].c).join(',');
+    const contCode = CT[state.cont].c;
+    const url = `${SERVER_URL}/api/data?cont=${contCode}&from=${state.y0}&to=${state.y1}` +
+      (stList ? `&stations=${stList}` : '');
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    try {
+      const resp = await fetch(url, { signal: ctrl.signal });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const json = await resp.json();
+      serverRows = (json.stations || []).map(r => [
+        r.dim_anio, r.dim_mes,
+        stByCode[r.dim_estacion] != null ? stByCode[r.dim_estacion] : -1,
+        ctByCode[r.dim_contaminante] != null ? ctByCode[r.dim_contaminante] : -1,
+        r.mt_valor_mean, r.mt_valor_max, r.mt_valor_p95,
+        r.mt_pct_datos != null ? Math.round(r.mt_pct_datos) : null,
+      ]).filter(r => r[2] >= 0 && r[3] >= 0);
+      setSourceDot('server-on');
+    } catch (e) {
+      console.warn('Server fetch failed:', e.message);
+      serverRows = [];
+      setSourceDot('server-off');
+      if (dataMode === 'server') {
+        document.getElementById('src-toggle').querySelector('[data-src="file"]').click();
+      }
     }
-    return out;
+    clearTimeout(timer);
+    serverFetching = false;
+  }
+
+  function filtered() {
+    // In file mode: filter from embedded ROWS
+    if (dataMode === 'file') {
+      const out = [];
+      for (let i = 0; i < ROWS.length; i++) {
+        const r = ROWS[i];
+        if (r[3] !== state.cont) continue;
+        if (r[0] < state.y0 || r[0] > state.y1) continue;
+        if (!state.stations.has(r[2])) continue;
+        out.push(r);
+      }
+      return out;
+    }
+    // In server mode: return already-filtered serverRows
+    return serverRows;
   }
 
   // ================= KPIs =================
@@ -863,7 +940,10 @@
       renderedOnce[tab] = true;
     });
   }
-  function updateAll() {
+  async function updateAll() {
+    if (dataMode === 'server' && !serverFetching) {
+      await fetchServerData();
+    }
     const rows = filtered();
     updateKPIs(rows);
     renderTab(activeTab, rows);
@@ -987,6 +1067,45 @@
       activeTab = btn.dataset.tab;
       renderTab(activeTab, filtered());
     });
+  });
+
+  // source toggle (Archivo / Servidor)
+  document.getElementById('src-toggle').addEventListener('click', async (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const newMode = b.dataset.src;
+    if (newMode === dataMode) return;
+
+    if (newMode === 'server') {
+      // check server health first (with timeout)
+      setSourceDot('fetching');
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 5000);
+      try {
+        const resp = await fetch(`${SERVER_URL}/health`, { signal: ctrl.signal });
+        if (!resp.ok) throw new Error('unhealthy');
+        dataMode = 'server';
+        setSourceDot('server-on');
+      } catch (ex) {
+        clearTimeout(timer);
+        setSourceDot('server-off');
+        alert(`No se pudo conectar al servidor en ${SERVER_URL}.\nAsegurate de que Docker este corriendo:\n  docker compose up -d`);
+        return;
+      }
+      clearTimeout(timer);
+    } else {
+      dataMode = 'file';
+      setSourceDot('file-mode');
+    }
+
+    document.getElementById('src-toggle').querySelectorAll('button').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.src === dataMode);
+    });
+
+    // Trigger data reload with new mode
+    await updateAll();
+    // Refresh map if needed
+    if (activeTab === 'mapa') { setTimeout(() => map && map.invalidateSize(), 60); }
   });
 
   // go
