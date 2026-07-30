@@ -13,6 +13,7 @@ DDL se ejecuta desde docker/postgres/olap/*.sql en orden.
 """
 
 import html
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -21,7 +22,10 @@ import psycopg
 from psycopg import sql
 
 
-DATABASE_URL = "postgresql://rama:rama@localhost:5433/rama"
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://rama:rama@localhost:5433/rama",  # sólo default de desarrollo
+)
 OLAP_SQL_DIR = Path("docker/postgres/olap")
 
 
@@ -318,51 +322,122 @@ def pueblar_tiempo(conn) -> None:
     print(f"  ✓ Generadas {count:,} horas (1986-2025)")
 
 
+# Índices de la fact table (mismos que 03_fact.sql). Se sueltan durante la carga
+# completa: mantener ~2.7 GB de índices vivos durante un INSERT de 50M filas es lo
+# que volvía interminable la carga. Reconstruirlos en bloque toma ~30 s.
+INDICES_FACT = {
+    "idx_fact_medicion_estacion_tiempo": "(estacion_id, tiempo_id)",
+    "idx_fact_medicion_contaminante_tiempo": "(contaminante_id, tiempo_id)",
+    "idx_fact_medicion_tiempo": "(tiempo_id)",
+    "idx_fact_medicion_est_cont": "(estacion_id, contaminante_id)",
+}
+
+FKS_FACT = {
+    "fact_medicion_hora_tiempo_id_fkey": "(tiempo_id) REFERENCES rama_olap.dim_tiempo",
+    "fact_medicion_hora_estacion_id_fkey": "(estacion_id) REFERENCES rama_olap.dim_estacion",
+    "fact_medicion_hora_contaminante_id_fkey": "(contaminante_id) REFERENCES rama_olap.dim_contaminante",
+}
+
+SELECT_FACT = """
+    SELECT
+        (EXTRACT(EPOCH FROM m.medido_en) * 3600)::BIGINT as tiempo_id,
+        m.estacion_id,
+        dc.contaminante_id,
+        m.valor,
+        CASE
+            WHEN m.valor IS NULL THEN NULL
+            ELSE ROUND((100.0 * (m.valor - dc.valor_min) / (dc.valor_max - dc.valor_min))::NUMERIC, 1)::REAL
+        END as indice_normalizado
+    FROM rama.medicion m
+    JOIN rama_olap.dim_contaminante dc ON m.contaminante_codigo = dc.codigo
+"""
+
+
 def pueblar_fact_mediciones(conn, anio_especifico: int = None) -> None:
-    """Pueblar fact_medicion_hora desde rama.medicion (con índice normalizado)."""
+    """
+    Pueblar fact_medicion_hora desde rama.medicion (con índice normalizado).
+
+    Carga completa: suelta índices y FKs, TRUNCATE, INSERT, y los reconstruye
+    (~90 s para 50.3M filas). Con --anio se reemplaza sólo ese año y los índices
+    se dejan en su lugar (el volumen es 40x menor).
+    """
     print("\n[6/6] Poblando fact_medicion_hora...")
     cursor = conn.cursor()
 
-    # Obtener años disponibles en OLTP
-    cursor.execute(
-        "SELECT DISTINCT EXTRACT(YEAR FROM medido_en)::INT FROM rama.medicion ORDER BY 1"
-    )
-    anios = [row[0] for row in cursor.fetchall()]
-
     if anio_especifico:
-        anios = [y for y in anios if y == anio_especifico]
-        if not anios:
-            print(f"  WARN: no hay datos para año {anio_especifico}")
-            return
-
-    total = 0
-    for anio in anios:
         cursor.execute(
             """
+            DELETE FROM rama_olap.fact_medicion_hora f
+            USING rama_olap.dim_tiempo dt
+            WHERE f.tiempo_id = dt.tiempo_id AND dt.anio = %s
+            """,
+            [anio_especifico],
+        )
+        print(f"  · Borradas {cursor.rowcount:,} filas previas de {anio_especifico}")
+
+        cursor.execute(
+            f"""
             INSERT INTO rama_olap.fact_medicion_hora
             (tiempo_id, estacion_id, contaminante_id, valor, indice_normalizado)
-            SELECT
-                (EXTRACT(EPOCH FROM m.medido_en) * 3600)::BIGINT as tiempo_id,
-                m.estacion_id,
-                dc.contaminante_id,
-                m.valor,
-                CASE
-                    WHEN m.valor IS NULL THEN NULL
-                    ELSE ROUND((100.0 * (m.valor - dc.valor_min) / (dc.valor_max - dc.valor_min))::NUMERIC, 1)::REAL
-                END as indice_normalizado
-            FROM rama.medicion m
-            JOIN rama_olap.dim_contaminante dc ON m.contaminante_codigo = dc.codigo
-            WHERE EXTRACT(YEAR FROM m.medido_en) = %s
-            ON CONFLICT DO NOTHING
+            {SELECT_FACT}
+            WHERE EXTRACT(YEAR FROM m.medido_en)::INT = %s
             """,
-            (anio,),
+            [anio_especifico],
         )
-        insertadas = cursor.rowcount
-        total += insertadas
-        print(f"  {anio}: {insertadas:,} filas")
+        total = cursor.rowcount
+        conn.commit()
+        print(f"  ✓ {total:,} mediciones recargadas para {anio_especifico}")
+        return
 
+    # Carga completa
+    cursor.execute("SET maintenance_work_mem = '512MB'")
+    cursor.execute("SET work_mem = '256MB'")
+
+    print("  · Soltando FKs e índices...")
+    for nombre in FKS_FACT:
+        cursor.execute(
+            sql.SQL("ALTER TABLE rama_olap.fact_medicion_hora DROP CONSTRAINT IF EXISTS {}")
+            .format(sql.Identifier(nombre))
+        )
+    for nombre in INDICES_FACT:
+        cursor.execute(
+            sql.SQL("DROP INDEX IF EXISTS rama_olap.{}").format(sql.Identifier(nombre))
+        )
     conn.commit()
-    print(f"\n  ✓ Total: {total:,} mediciones en fact_medicion_hora")
+
+    cursor.execute("TRUNCATE rama_olap.fact_medicion_hora")
+    print("  · Insertando (heap sin índices)...")
+    cursor.execute(
+        f"""
+        INSERT INTO rama_olap.fact_medicion_hora
+        (tiempo_id, estacion_id, contaminante_id, valor, indice_normalizado)
+        {SELECT_FACT}
+        """
+    )
+    total = cursor.rowcount
+    conn.commit()
+
+    print("  · Reconstruyendo índices...")
+    for nombre, columnas in INDICES_FACT.items():
+        cursor.execute(
+            sql.SQL(
+                "CREATE INDEX {} ON rama_olap.fact_medicion_hora "
+                + columnas
+                + " WHERE valor IS NOT NULL"
+            ).format(sql.Identifier(nombre))
+        )
+    conn.commit()
+
+    print("  · Restaurando FKs...")
+    for nombre, definicion in FKS_FACT.items():
+        cursor.execute(
+            sql.SQL("ALTER TABLE rama_olap.fact_medicion_hora ADD CONSTRAINT {} FOREIGN KEY " + definicion)
+            .format(sql.Identifier(nombre))
+        )
+    cursor.execute("ANALYZE rama_olap.fact_medicion_hora")
+    conn.commit()
+
+    print(f"  ✓ Total: {total:,} mediciones en fact_medicion_hora")
 
 
 def refrescar_agregados(conn) -> None:

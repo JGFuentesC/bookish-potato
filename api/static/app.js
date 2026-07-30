@@ -12,6 +12,12 @@ let state = {
 };
 
 let map = null;
+let capa_estaciones = null;
+let rango_datos = null;  // { fecha_min, fecha_max } del cubo
+
+// Ventana por defecto según granularidad: 30 días de datos horarios/diarios se
+// ven bien, pero en vista mensual serían un único punto.
+const DIAS_POR_GRANULARIDAD = { hora: 7, dia: 30, mes: 730 };
 
 // ============================================================================
 // Inicialización
@@ -19,16 +25,81 @@ let map = null;
 
 async function init() {
   try {
-    await cargar_dimensiones();
-    await actualizar_kpis();
-    await actualizar_serie_tiempo();
-    await actualizar_mapa();
-    await actualizar_rankings();
-    await actualizar_completitud();
-    setup_event_listeners();
+    await fijar_rango_inicial();
   } catch (e) {
-    console.error('Error en inicialización:', e);
+    console.warn('Rango de fechas no disponible, se usan los defaults de la API:', e);
   }
+
+  try {
+    await cargar_dimensiones();
+  } catch (e) {
+    console.error('Error cargando dimensiones:', e);
+  }
+
+  try {
+    await actualizar_kpis();
+  } catch (e) {
+    console.warn('KPIs no disponibles:', e);
+  }
+
+  try {
+    await actualizar_serie_tiempo();
+  } catch (e) {
+    console.warn('Serie tiempo no disponible:', e);
+  }
+
+  try {
+    await actualizar_mapa();
+  } catch (e) {
+    console.warn('Mapa no disponible:', e);
+  }
+
+  try {
+    await actualizar_rankings();
+  } catch (e) {
+    console.warn('Rankings no disponibles:', e);
+  }
+
+  try {
+    await actualizar_completitud();
+  } catch (e) {
+    console.warn('Completitud no disponible:', e);
+  }
+
+  setup_event_listeners();
+}
+
+// Fija fechas explícitas desde el rango real de datos (terminan en 2025-12-31).
+// Sin esto, cada endpoint resolvía su propio default: los KPIs miraban 12 meses,
+// la serie 30 días, y los inputs mostraban fechas de hoy que no correspondían
+// a nada de lo graficado.
+async function fijar_rango_inicial() {
+  rango_datos = await fetch(`${API_URL}/api/rango-fechas`).then(r => r.json());
+
+  ['fecha-inicio', 'fecha-fin'].forEach(id => {
+    document.getElementById(id).min = rango_datos.fecha_min;
+    document.getElementById(id).max = rango_datos.fecha_max;
+  });
+
+  aplicar_ventana_por_granularidad();
+}
+
+// Reencuadra el período al cambiar de granularidad, tomando como fin la última
+// fecha con datos.
+function aplicar_ventana_por_granularidad() {
+  if (!rango_datos) return;
+
+  const dias = DIAS_POR_GRANULARIDAD[state.granularidad] ?? 30;
+  const fecha_fin = new Date(`${rango_datos.fecha_max}T00:00:00`);
+  const fecha_inicio = new Date(fecha_fin.getTime() - dias * 24 * 60 * 60 * 1000);
+  const limite_min = new Date(`${rango_datos.fecha_min}T00:00:00`);
+
+  state.fecha_fin = rango_datos.fecha_max;
+  state.fecha_inicio = (fecha_inicio < limite_min ? limite_min : fecha_inicio)
+    .toISOString().slice(0, 10);
+
+  document.getElementById('fecha-inicio').value = state.fecha_inicio;
+  document.getElementById('fecha-fin').value = state.fecha_fin;
 }
 
 // ============================================================================
@@ -105,16 +176,14 @@ function setup_event_listeners() {
       document.querySelectorAll('[data-granularidad]').forEach(b => b.classList.remove('active'));
       e.target.classList.add('active');
       revisar_hora_deshabilitada();
+      aplicar_ventana_por_granularidad();
       actualizar_ui();
     });
   });
 
-  // Fechas
-  const hoy = new Date();
-  const hace_30_dias = new Date(hoy.getTime() - 30 * 24 * 60 * 60 * 1000);
-  document.getElementById('fecha-inicio').valueAsDate = hace_30_dias;
-  document.getElementById('fecha-fin').valueAsDate = hoy;
-
+  // Fechas: no se prellenan con hoy — los datos terminan en 2025-12-31 y el
+  // filtro mostraba un rango de 2026 que contradecía lo graficado. Los inputs
+  // se sincronizan con el período que resuelve la API (ver actualizar_kpis).
   document.getElementById('fecha-inicio').addEventListener('change', () => {
     state.fecha_inicio = document.getElementById('fecha-inicio').value;
     actualizar_ui();
@@ -146,8 +215,24 @@ function cambiar_tab(tab) {
   document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
   document.getElementById(`tab-${tab}`).style.display = 'block';
 
-  // Re-render en caso de que sea lazy
-  if (tab === 'mapa' && map === null) actualizar_mapa();
+  // El mapa se inicializa con #tab-mapa oculto, así que Leaflet mide un
+  // contenedor de 0x0 y sólo carga un tile. Hay que recalcular al mostrarlo.
+  if (tab === 'mapa') {
+    if (map === null) {
+      actualizar_mapa();
+    } else {
+      map.invalidateSize();
+      if (capa_estaciones && capa_estaciones.getLayers().length > 0) {
+        map.fitBounds(capa_estaciones.getBounds(), { padding: [40, 40] });
+      }
+    }
+  }
+
+  // Plotly dibuja con el ancho por defecto (700px) si el tab está oculto; sin
+  // esto la gráfica se ve a media anchura durante los primeros instantes
+  if (tab === 'datos' && window.Plotly) {
+    Plotly.Plots.resize('chart-completitud');
+  }
 }
 
 function revisar_hora_deshabilitada() {
@@ -182,6 +267,14 @@ async function actualizar_ui() {
 // KPIs
 // ============================================================================
 
+// Escala la unidad al tamaño del número: dividir siempre entre 1e6 mostraba
+// "0.0M" para los 16,368 registros de un mes filtrado por contaminante.
+function formatear_conteo(n) {
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
+  return `${n}`;
+}
+
 async function actualizar_kpis() {
   const params = new URLSearchParams();
   if (state.contaminante) params.append('contaminante', state.contaminante);
@@ -190,6 +283,10 @@ async function actualizar_kpis() {
   if (state.fecha_fin) params.append('fecha_fin', state.fecha_fin);
 
   const data = await fetch(`${API_URL}/api/kpis?${params}`).then(r => r.json());
+
+  // Reflejar en los inputs el período que la API resolvió por defecto
+  if (!state.fecha_inicio) document.getElementById('fecha-inicio').value = data.periodo.fecha_inicio;
+  if (!state.fecha_fin) document.getElementById('fecha-fin').value = data.periodo.fecha_fin;
 
   const html = `
     <div class="kpi">
@@ -206,7 +303,7 @@ async function actualizar_kpis() {
     </div>
     <div class="kpi">
       <div class="kpi-label">Total Mediciones</div>
-      <div class="kpi-value">${(data.total_mediciones / 1e6).toFixed(1)}M</div>
+      <div class="kpi-value">${formatear_conteo(data.total_mediciones)}</div>
     </div>
   `;
 
@@ -261,6 +358,8 @@ async function actualizar_mapa() {
       attribution: '© OpenStreetMap',
       maxZoom: 19,
     }).addTo(map);
+    // featureGroup, no layerGroup: sólo el primero expone getBounds() para fitBounds
+    capa_estaciones = L.featureGroup().addTo(map);
   }
 
   const params = new URLSearchParams();
@@ -269,10 +368,9 @@ async function actualizar_mapa() {
 
   const data = await fetch(`${API_URL}/api/mapa-estaciones?${params}`).then(r => r.json());
 
-  // Limpiar marcadores previos
-  map.eachLayer(layer => {
-    if (layer instanceof L.Marker) map.removeLayer(layer);
-  });
+  // Limpiar marcadores previos (son circleMarker, no Marker: el chequeo
+  // instanceof L.Marker no los removía y se acumulaban en cada refresh)
+  capa_estaciones.clearLayers();
 
   // Rango de índices para colorear
   const indices = data.estaciones.map(e => e.indice_normalizado).filter(i => i !== null);
@@ -296,8 +394,14 @@ async function actualizar_mapa() {
       weight: 1,
       opacity: 1,
       fillOpacity: 0.8,
-    }).bindPopup(popup).addTo(map);
+    }).bindPopup(popup).addTo(capa_estaciones);
   });
+
+  // Encuadrar sobre las estaciones: con zoom 11 fijo quedaban apiñadas al centro
+  if (data.estaciones.length > 0) {
+    map.invalidateSize();
+    map.fitBounds(capa_estaciones.getBounds(), { padding: [40, 40] });
+  }
 }
 
 // ============================================================================

@@ -21,18 +21,18 @@ COMMENT ON TABLE rama_olap.fact_medicion_hora IS
   'Escalado 0-100 es agnóstico a unidades y defendible sin datos IMECA externos.';
 
 -- Índices estratégicos para queries de BI
-CREATE INDEX idx_fact_medicion_estacion_tiempo
+CREATE INDEX IF NOT EXISTS idx_fact_medicion_estacion_tiempo
     ON rama_olap.fact_medicion_hora(estacion_id, tiempo_id)
     WHERE valor IS NOT NULL;
 
-CREATE INDEX idx_fact_medicion_contaminante_tiempo
+CREATE INDEX IF NOT EXISTS idx_fact_medicion_contaminante_tiempo
     ON rama_olap.fact_medicion_hora(contaminante_id, tiempo_id)
     WHERE valor IS NOT NULL;
 
-CREATE INDEX idx_fact_medicion_tiempo
+CREATE INDEX IF NOT EXISTS idx_fact_medicion_tiempo
     ON rama_olap.fact_medicion_hora(tiempo_id)
     WHERE valor IS NOT NULL;
 
-CREATE INDEX idx_fact_medicion_est_cont
+CREATE INDEX IF NOT EXISTS idx_fact_medicion_est_cont
     ON rama_olap.fact_medicion_hora(estacion_id, contaminante_id)
     WHERE valor IS NOT NULL;

@@ -11,6 +11,14 @@ Datos: [aire.cdmx.gob.mx](https://www.aire.cdmx.gob.mx) — Red Automatica de Mo
 
 ---
 
+## Demo del Dashboard
+
+![Dashboard OLAP — recorrido por los 4 tabs](docs/dashboard-demo.gif)
+
+Recorrido por los 4 tabs: **Resumen** (serie temporal con min/max), **Mapa** (estaciones en Leaflet), **Rankings** (top/bottom estaciones y contaminantes) y **Calidad de Datos** (% completitud).
+
+---
+
 ## Quick Start
 
 ### 1. Levantar servicios (PostgreSQL + API FastAPI)

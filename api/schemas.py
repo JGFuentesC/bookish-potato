@@ -49,6 +49,11 @@ class Periodo(BaseModel):
     fecha_fin: str
 
 
+class RangoFechasResponse(BaseModel):
+    fecha_min: str
+    fecha_max: str
+
+
 class KPIsResponse(BaseModel):
     periodo: Periodo
     promedio_indice_normalizado: float
@@ -103,7 +108,7 @@ class ItemRankingEstacion(BaseModel):
     nombre: str
     alcaldia: str
     valor_promedio: Optional[float]
-    indice_normalizado: float
+    indice_normalizado: Optional[float]
 
 
 class RankingEstacionesResponse(BaseModel):
@@ -117,7 +122,7 @@ class ItemRankingContaminante(BaseModel):
     codigo: str
     nombre: str
     categoria: str
-    indice_normalizado_promedio: float
+    indice_normalizado_promedio: Optional[float]
 
 
 class RankingContaminantesResponse(BaseModel):

@@ -66,6 +66,19 @@ def get_dimensiones(tipo: str) -> schemas.DimensionesResponse:
     return schemas.DimensionesResponse(tipo=tipo, items=items)
 
 
+@app.get("/api/rango-fechas", response_model=schemas.RangoFechasResponse)
+def get_rango_fechas():
+    """
+    Rango de fechas con datos. El dashboard lo usa al arrancar para fijar
+    fechas explícitas en todos los filtros (los datos terminan en 2025, no hoy).
+    """
+    try:
+        fecha_min, fecha_max = consultas.obtener_rango_fechas_disponibles()
+        return schemas.RangoFechasResponse(fecha_min=fecha_min, fecha_max=fecha_max)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============================================================================
 # KPIs
 # ============================================================================

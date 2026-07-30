@@ -24,10 +24,10 @@ COMMENT ON MATERIALIZED VIEW rama_olap.agg_medicion_diaria IS
   'Agregación a nivel día: promedios, min/max, índice normalizado, '
   'conteos de mediciones y % de completitud. Refrescable vía REFRESH.';
 
-CREATE INDEX idx_agg_medicion_diaria_fecha ON rama_olap.agg_medicion_diaria(fecha);
-CREATE INDEX idx_agg_medicion_diaria_estacion_fecha
+CREATE INDEX IF NOT EXISTS idx_agg_medicion_diaria_fecha ON rama_olap.agg_medicion_diaria(fecha);
+CREATE INDEX IF NOT EXISTS idx_agg_medicion_diaria_estacion_fecha
     ON rama_olap.agg_medicion_diaria(estacion_id, fecha DESC);
-CREATE INDEX idx_agg_medicion_diaria_contaminante_fecha
+CREATE INDEX IF NOT EXISTS idx_agg_medicion_diaria_contaminante_fecha
     ON rama_olap.agg_medicion_diaria(contaminante_id, fecha DESC);
 
 ---
@@ -56,9 +56,9 @@ COMMENT ON MATERIALIZED VIEW rama_olap.agg_medicion_mensual IS
   'Agregación a nivel mes: mismas métricas que diaria. '
   'Para dashboard usamos esta cuando los rangos son largos (> 12 meses).';
 
-CREATE INDEX idx_agg_medicion_mensual_anio_mes
+CREATE INDEX IF NOT EXISTS idx_agg_medicion_mensual_anio_mes
     ON rama_olap.agg_medicion_mensual(anio, mes DESC);
-CREATE INDEX idx_agg_medicion_mensual_estacion
+CREATE INDEX IF NOT EXISTS idx_agg_medicion_mensual_estacion
     ON rama_olap.agg_medicion_mensual(estacion_id, anio, mes DESC);
-CREATE INDEX idx_agg_medicion_mensual_contaminante
+CREATE INDEX IF NOT EXISTS idx_agg_medicion_mensual_contaminante
     ON rama_olap.agg_medicion_mensual(contaminante_id, anio, mes DESC);

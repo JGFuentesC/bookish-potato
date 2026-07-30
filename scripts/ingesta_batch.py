@@ -19,6 +19,7 @@ Si --anio se especifica, carga solo ese año. Si no, carga todos.
 """
 
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -28,7 +29,10 @@ import psycopg
 from psycopg import sql
 
 
-DATABASE_URL = "postgresql://rama:rama@localhost:5433/rama"
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://rama:rama@localhost:5433/rama",  # sólo default de desarrollo
+)
 PARQUET_PATH = Path("data/curated/rama_historica.parquet")
 STATIONS_PATH = Path("data/exposure/stations_catalog.json")
 PERIODOS_PATH = Path("data/exposure/periodos_estaciones.csv")

@@ -27,7 +27,7 @@ def obtener_dimensiones(tipo: str) -> List[dict]:
 
         if tipo == "contaminantes":
             cursor.execute("""
-                SELECT contaminante_id, codigo, nombre, unidad, categoria_id
+                SELECT contaminante_id, TRIM(codigo) AS codigo, nombre, unidad, categoria_id
                 FROM rama_olap.dim_contaminante
                 ORDER BY codigo
             """)
@@ -43,7 +43,7 @@ def obtener_dimensiones(tipo: str) -> List[dict]:
 
         elif tipo == "estaciones":
             cursor.execute("""
-                SELECT estacion_id, codigo, nombre_estacion, alcaldia_id, latitud, longitud, activo
+                SELECT estacion_id, TRIM(codigo) AS codigo, nombre_estacion, alcaldia_id, latitud, longitud, activo
                 FROM rama_olap.dim_estacion
                 ORDER BY codigo
             """)
@@ -68,15 +68,19 @@ def obtener_dimensiones(tipo: str) -> List[dict]:
 
 
 def obtener_rango_fechas_disponibles() -> Tuple[str, str]:
-    """Obtener rango de fechas con datos en fact table."""
+    """
+    Obtener rango de fechas con datos.
+
+    Se resuelve sobre agg_medicion_diaria (2M filas) y no sobre la fact de 50M:
+    esta función se llama en cada request que no trae fechas explícitas.
+    """
     conn = get_connection()
     try:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT MIN(dt.fecha)::DATE, MAX(dt.fecha)::DATE
-            FROM rama_olap.fact_medicion_hora f
-            JOIN rama_olap.dim_tiempo dt ON f.tiempo_id = dt.tiempo_id
-            WHERE f.valor IS NOT NULL
+            SELECT MIN(fecha)::DATE, MAX(fecha)::DATE
+            FROM rama_olap.agg_medicion_diaria
+            WHERE mediciones_validas > 0
         """)
         fecha_min, fecha_max = cursor.fetchone()
         return (fecha_min.isoformat() if fecha_min else "1986-01-01",
@@ -100,7 +104,7 @@ def obtener_kpis(
     try:
         # Resolver fechas por defecto
         if not fecha_fin:
-            fecha_max_str, _ = obtener_rango_fechas_disponibles()
+            _, fecha_max_str = obtener_rango_fechas_disponibles()
             fecha_fin_dt = datetime.fromisoformat(fecha_max_str)
         else:
             fecha_fin_dt = datetime.fromisoformat(fecha_fin)
@@ -115,34 +119,35 @@ def obtener_kpis(
 
         cursor = conn.cursor()
 
-        # Construir filtros SQL dinámicos
-        where_clauses = [
-            f"dt.fecha >= '{fecha_inicio_str}'::DATE",
-            f"dt.fecha <= '{fecha_fin_str}'::DATE",
-        ]
+        # Filtros dinámicos con placeholders — los valores nunca se interpolan
+        where_clauses = ["d.fecha >= %s::DATE", "d.fecha <= %s::DATE"]
+        params: list = [fecha_inicio_str, fecha_fin_str]
 
         if contaminante:
-            where_clauses.append(f"dc.codigo = '{contaminante}'")
+            where_clauses.append("dc.codigo = %s")
+            params.append(contaminante)
 
         if alcaldia_id:
-            where_clauses.append(f"de.alcaldia_id = {alcaldia_id}")
+            where_clauses.append("de.alcaldia_id = %s")
+            params.append(alcaldia_id)
 
         where_clause = " AND ".join(where_clauses)
 
+        # Se lee del agregado diario, no de la fact de 50M: sobre la fact este
+        # query tardaba ~3.5 s
         cursor.execute(f"""
             SELECT
-                ROUND(AVG(f.indice_normalizado)::NUMERIC, 1) as promedio_indice,
-                ROUND(100.0 * COUNT(CASE WHEN f.valor IS NOT NULL THEN 1 END)
-                      / NULLIF(COUNT(*), 0)::NUMERIC, 1) as pct_completitud,
-                COUNT(DISTINCT f.estacion_id) as estaciones_activas,
-                COUNT(DISTINCT f.contaminante_id) as contaminantes_monitoreados,
-                COUNT(*) as total_mediciones
-            FROM rama_olap.fact_medicion_hora f
-            JOIN rama_olap.dim_tiempo dt ON f.tiempo_id = dt.tiempo_id
-            JOIN rama_olap.dim_contaminante dc ON f.contaminante_id = dc.contaminante_id
-            JOIN rama_olap.dim_estacion de ON f.estacion_id = de.estacion_id
+                ROUND(AVG(d.indice_normalizado)::NUMERIC, 1) as promedio_indice,
+                ROUND(100.0 * SUM(d.mediciones_validas)
+                      / NULLIF(SUM(d.mediciones_totales), 0)::NUMERIC, 1) as pct_completitud,
+                COUNT(DISTINCT d.estacion_id) as estaciones_activas,
+                COUNT(DISTINCT d.contaminante_id) as contaminantes_monitoreados,
+                COALESCE(SUM(d.mediciones_totales), 0) as total_mediciones
+            FROM rama_olap.agg_medicion_diaria d
+            JOIN rama_olap.dim_contaminante dc ON d.contaminante_id = dc.contaminante_id
+            JOIN rama_olap.dim_estacion de ON d.estacion_id = de.estacion_id
             WHERE {where_clause}
-        """)
+        """, params)
 
         row = cursor.fetchone()
         if not row or row[0] is None:
@@ -197,8 +202,11 @@ def obtener_series_tiempo(
             fecha_fin = fecha_max_str
 
         if not fecha_inicio:
+            # Ventana por defecto según granularidad: con 30 días la vista
+            # mensual devolvía un solo punto
+            dias_default = {"hora": 7, "dia": 30, "mes": 730}.get(granularidad, 30)
             f = datetime.fromisoformat(fecha_fin)
-            fecha_inicio = (f - timedelta(days=30)).date().isoformat()
+            fecha_inicio = (f - timedelta(days=dias_default)).date().isoformat()
 
         # Seleccionar tabla según granularidad
         if granularidad == "hora":
@@ -206,7 +214,7 @@ def obtener_series_tiempo(
             estacion_codigo = estacion.upper()
             cursor.execute(f"""
                 SELECT
-                    dt.fecha_hora::DATE::TEXT as fecha,
+                    dt.fecha_hora::TEXT as fecha,
                     ROUND(AVG(f.valor)::NUMERIC, 2) as valor_promedio,
                     MIN(f.valor) as valor_min,
                     MAX(f.valor) as valor_max,
@@ -218,61 +226,74 @@ def obtener_series_tiempo(
                 JOIN rama_olap.dim_tiempo dt ON f.tiempo_id = dt.tiempo_id
                 JOIN rama_olap.dim_contaminante dc ON f.contaminante_id = dc.contaminante_id
                 JOIN rama_olap.dim_estacion de ON f.estacion_id = de.estacion_id
-                WHERE dc.codigo = '{contaminante}'
-                  AND de.codigo = '{estacion_codigo}'
-                  AND dt.fecha >= '{fecha_inicio}'::DATE
-                  AND dt.fecha <= '{fecha_fin}'::DATE
-                GROUP BY dt.fecha_hora::DATE
+                WHERE dc.codigo = %s
+                  AND de.codigo = %s
+                  AND dt.fecha >= %s::DATE
+                  AND dt.fecha <= %s::DATE
+                GROUP BY dt.fecha_hora
                 ORDER BY dt.fecha_hora ASC
-            """)
+            """, [contaminante, estacion_codigo, fecha_inicio, fecha_fin])
 
         elif granularidad == "dia":
             tabla = "rama_olap.agg_medicion_diaria"
-            where = f"dt.codigo = '{contaminante}' AND d.fecha >= '{fecha_inicio}'::DATE AND d.fecha <= '{fecha_fin}'::DATE"
+            where = "dt.codigo = %s AND d.fecha >= %s::DATE AND d.fecha <= %s::DATE"
+            params: list = [contaminante, fecha_inicio, fecha_fin]
             if estacion:
-                where += f" AND de.codigo = '{estacion.upper()}'"
+                where += " AND de.codigo = %s"
+                params.append(estacion.upper())
             if alcaldia_id:
-                where += f" AND de.alcaldia_id = {alcaldia_id}"
+                where += " AND de.alcaldia_id = %s"
+                params.append(alcaldia_id)
 
+            # Agregamos sobre estaciones: un punto por fecha (si no, el gráfico
+            # recibe una fila por estación y los puntos se duplican)
             cursor.execute(f"""
                 SELECT
                     d.fecha::TEXT,
-                    d.valor_promedio,
-                    d.valor_minimo,
-                    d.valor_maximo,
-                    d.indice_normalizado,
-                    d.mediciones_validas,
-                    d.pct_completitud
+                    ROUND(AVG(d.valor_promedio)::NUMERIC, 2),
+                    MIN(d.valor_minimo),
+                    MAX(d.valor_maximo),
+                    ROUND(AVG(d.indice_normalizado)::NUMERIC, 1),
+                    SUM(d.mediciones_validas),
+                    ROUND(100.0 * SUM(d.mediciones_validas)
+                          / NULLIF(SUM(d.mediciones_totales), 0)::NUMERIC, 1)
                 FROM {tabla} d
                 JOIN rama_olap.dim_contaminante dt ON d.contaminante_id = dt.contaminante_id
                 JOIN rama_olap.dim_estacion de ON d.estacion_id = de.estacion_id
                 WHERE {where}
+                GROUP BY d.fecha
                 ORDER BY d.fecha ASC
-            """)
+            """, params)
 
         elif granularidad == "mes":
             tabla = "rama_olap.agg_medicion_mensual"
-            where = f"dt.codigo = '{contaminante}' AND m.fecha_primer_dia_mes >= '{fecha_inicio}'::DATE AND m.fecha_primer_dia_mes <= '{fecha_fin}'::DATE"
+            where = ("dt.codigo = %s AND m.fecha_primer_dia_mes >= %s::DATE "
+                     "AND m.fecha_primer_dia_mes <= %s::DATE")
+            params = [contaminante, fecha_inicio, fecha_fin]
             if estacion:
-                where += f" AND de.codigo = '{estacion.upper()}'"
+                where += " AND de.codigo = %s"
+                params.append(estacion.upper())
             if alcaldia_id:
-                where += f" AND de.alcaldia_id = {alcaldia_id}"
+                where += " AND de.alcaldia_id = %s"
+                params.append(alcaldia_id)
 
             cursor.execute(f"""
                 SELECT
                     m.fecha_primer_dia_mes::TEXT,
-                    m.valor_promedio,
-                    m.valor_minimo,
-                    m.valor_maximo,
-                    m.indice_normalizado,
-                    m.mediciones_validas,
-                    m.pct_completitud
+                    ROUND(AVG(m.valor_promedio)::NUMERIC, 2),
+                    MIN(m.valor_minimo),
+                    MAX(m.valor_maximo),
+                    ROUND(AVG(m.indice_normalizado)::NUMERIC, 1),
+                    SUM(m.mediciones_validas),
+                    ROUND(100.0 * SUM(m.mediciones_validas)
+                          / NULLIF(SUM(m.mediciones_totales), 0)::NUMERIC, 1)
                 FROM {tabla} m
                 JOIN rama_olap.dim_contaminante dt ON m.contaminante_id = dt.contaminante_id
                 JOIN rama_olap.dim_estacion de ON m.estacion_id = de.estacion_id
                 WHERE {where}
+                GROUP BY m.fecha_primer_dia_mes
                 ORDER BY m.fecha_primer_dia_mes ASC
-            """)
+            """, params)
 
         else:
             raise ValueError("granularidad inválida")
@@ -311,20 +332,20 @@ def obtener_mapa_estaciones(
 
         # Resolver fecha
         if not fecha:
-            cursor.execute(f"""
+            cursor.execute("""
                 SELECT MAX(d.fecha)::TEXT
                 FROM rama_olap.agg_medicion_diaria d
                 JOIN rama_olap.dim_contaminante dc ON d.contaminante_id = dc.contaminante_id
-                WHERE dc.codigo = '{contaminante}'
-            """)
+                WHERE dc.codigo = %s
+            """, [contaminante])
             fecha = cursor.fetchone()[0]
             if not fecha:
                 fecha = "1986-01-01"
 
-        cursor.execute(f"""
+        cursor.execute("""
             SELECT
                 de.estacion_id,
-                de.codigo,
+                TRIM(de.codigo),
                 de.nombre_estacion,
                 da.nombre_alcaldia,
                 de.latitud,
@@ -335,10 +356,10 @@ def obtener_mapa_estaciones(
             JOIN rama_olap.dim_contaminante dc ON d.contaminante_id = dc.contaminante_id
             JOIN rama_olap.dim_estacion de ON d.estacion_id = de.estacion_id
             JOIN rama_olap.dim_alcaldia da ON de.alcaldia_id = da.alcaldia_id
-            WHERE dc.codigo = '{contaminante}'
-              AND d.fecha = '{fecha}'::DATE
+            WHERE dc.codigo = %s
+              AND d.fecha = %s::DATE
             ORDER BY de.codigo
-        """)
+        """, [contaminante, fecha])
 
         rows = cursor.fetchall()
         estaciones = []
@@ -387,7 +408,7 @@ def obtener_ranking_estaciones(
             WITH ranking AS (
                 SELECT
                     ROW_NUMBER() OVER (ORDER BY AVG(d.indice_normalizado) {orden_sql}) as posicion,
-                    de.codigo,
+                    TRIM(de.codigo) AS codigo,
                     de.nombre_estacion,
                     da.nombre_alcaldia,
                     ROUND(AVG(d.valor_promedio)::NUMERIC, 2) as valor_promedio,
@@ -396,16 +417,17 @@ def obtener_ranking_estaciones(
                 JOIN rama_olap.dim_contaminante dc ON d.contaminante_id = dc.contaminante_id
                 JOIN rama_olap.dim_estacion de ON d.estacion_id = de.estacion_id
                 JOIN rama_olap.dim_alcaldia da ON de.alcaldia_id = da.alcaldia_id
-                WHERE dc.codigo = '{contaminante}'
-                  AND d.fecha >= '{fecha_inicio}'::DATE
-                  AND d.fecha <= '{fecha_fin}'::DATE
+                WHERE dc.codigo = %s
+                  AND d.fecha >= %s::DATE
+                  AND d.fecha <= %s::DATE
                 GROUP BY de.estacion_id, de.codigo, de.nombre_estacion, da.nombre_alcaldia
+                HAVING AVG(d.indice_normalizado) IS NOT NULL
             )
             SELECT posicion, codigo, nombre_estacion, nombre_alcaldia, valor_promedio, indice_normalizado
             FROM ranking
             ORDER BY posicion ASC
-            LIMIT {limit}
-        """)
+            LIMIT %s
+        """, [contaminante, fecha_inicio, fecha_fin, limit])
 
         rows = cursor.fetchall()
         ranking = []
@@ -447,16 +469,16 @@ def obtener_ranking_contaminantes(
             fecha_inicio = (f - timedelta(days=30)).date().isoformat()
 
         # Construir filtros
-        filtros = [
-            f"d.fecha >= '{fecha_inicio}'::DATE",
-            f"d.fecha <= '{fecha_fin}'::DATE",
-        ]
+        filtros = ["d.fecha >= %s::DATE", "d.fecha <= %s::DATE"]
+        params: list = [fecha_inicio, fecha_fin]
 
         if estacion:
-            filtros.append(f"de.codigo = '{estacion.upper()}'")
+            filtros.append("de.codigo = %s")
+            params.append(estacion.upper())
 
         if alcaldia_id:
-            filtros.append(f"de.alcaldia_id = {alcaldia_id}")
+            filtros.append("de.alcaldia_id = %s")
+            params.append(alcaldia_id)
 
         where_clause = " AND ".join(filtros)
 
@@ -464,7 +486,7 @@ def obtener_ranking_contaminantes(
             WITH ranking AS (
                 SELECT
                     ROW_NUMBER() OVER (ORDER BY AVG(d.indice_normalizado) DESC) as posicion,
-                    dc.codigo,
+                    TRIM(dc.codigo) AS codigo,
                     dc.nombre,
                     dcat.nombre_categoria,
                     ROUND(AVG(d.indice_normalizado)::NUMERIC, 1) as indice_promedio
@@ -474,12 +496,13 @@ def obtener_ranking_contaminantes(
                 JOIN rama_olap.dim_estacion de ON d.estacion_id = de.estacion_id
                 WHERE {where_clause}
                 GROUP BY dc.contaminante_id, dc.codigo, dc.nombre, dcat.nombre_categoria
+                HAVING AVG(d.indice_normalizado) IS NOT NULL
             )
             SELECT posicion, codigo, nombre, nombre_categoria, indice_promedio
             FROM ranking
             ORDER BY posicion ASC
-            LIMIT {limit}
-        """)
+            LIMIT %s
+        """, params + [limit])
 
         rows = cursor.fetchall()
         ranking = []
@@ -516,7 +539,7 @@ def obtener_completitud(
         if agrupar_por == "contaminante":
             cursor.execute("""
                 SELECT
-                    dc.codigo as clave,
+                    TRIM(dc.codigo) as clave,
                     dc.nombre as etiqueta,
                     COUNT(*) as mediciones_totales,
                     COUNT(CASE WHEN f.valor IS NOT NULL THEN 1 END) as mediciones_validas,
@@ -531,7 +554,7 @@ def obtener_completitud(
         elif agrupar_por == "estacion":
             cursor.execute("""
                 SELECT
-                    de.codigo as clave,
+                    TRIM(de.codigo) as clave,
                     de.nombre_estacion as etiqueta,
                     COUNT(*) as mediciones_totales,
                     COUNT(CASE WHEN f.valor IS NOT NULL THEN 1 END) as mediciones_validas,

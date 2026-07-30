@@ -24,8 +24,8 @@ COMMENT ON TABLE rama_olap.dim_tiempo IS
   'Dimensión temporal: grano hora. Columnas para análisis de patrones '
   'temporales, estacionalidad y tendencias históricas.';
 
-CREATE INDEX idx_dim_tiempo_fecha ON rama_olap.dim_tiempo(fecha);
-CREATE INDEX idx_dim_tiempo_anio_mes ON rama_olap.dim_tiempo(anio, mes);
+CREATE INDEX IF NOT EXISTS idx_dim_tiempo_fecha ON rama_olap.dim_tiempo(fecha);
+CREATE INDEX IF NOT EXISTS idx_dim_tiempo_anio_mes ON rama_olap.dim_tiempo(anio, mes);
 
 ---
 
@@ -43,7 +43,7 @@ COMMENT ON TABLE rama_olap.dim_alcaldia IS
   'Nombres normalizados (sin HTML entities), deduplicados. '
   '~24 filas (consolidadas de 31 variantes sucias en origen).';
 
-CREATE INDEX idx_dim_alcaldia_entidad ON rama_olap.dim_alcaldia(entidad);
+CREATE INDEX IF NOT EXISTS idx_dim_alcaldia_entidad ON rama_olap.dim_alcaldia(entidad);
 
 ---
 
@@ -81,7 +81,7 @@ COMMENT ON TABLE rama_olap.dim_contaminante IS
   'para independencia del schema OLTP. Incluye categoría (Gases/Partículas) '
   'para análisis tabulares.';
 
-CREATE INDEX idx_dim_contaminante_categoria ON rama_olap.dim_contaminante(categoria_id);
+CREATE INDEX IF NOT EXISTS idx_dim_contaminante_categoria ON rama_olap.dim_contaminante(categoria_id);
 
 ---
 
@@ -104,8 +104,8 @@ COMMENT ON TABLE rama_olap.dim_estacion IS
   'Si se necesita historial SCD2 completo, consultar rama.estacion_periodo directamente. '
   'Aquí usamos la geografía actual para simplificar el cubo BI.';
 
-CREATE INDEX idx_dim_estacion_alcaldia ON rama_olap.dim_estacion(alcaldia_id);
-CREATE INDEX idx_dim_estacion_activo ON rama_olap.dim_estacion(activo);
+CREATE INDEX IF NOT EXISTS idx_dim_estacion_alcaldia ON rama_olap.dim_estacion(alcaldia_id);
+CREATE INDEX IF NOT EXISTS idx_dim_estacion_activo ON rama_olap.dim_estacion(activo);
 
 ---
 
