@@ -1,90 +1,55 @@
 # Diagrama Entidad-Relación (ER) — RAMA OLTP
 
-Modelo relacional 4FN para datos horarios de calidad del aire.
+Modelo relacional 4FN para datos horarios de calidad del aire (CDMX).
 
-```mermaid
-erDiagram
-    CONTAMINANTE ||--o{ MEDICION : mide
-    ESTACION ||--o{ ESTACION_PERIODO : tiene
-    ESTACION_PERIODO ||--o{ MEDICION : registra
-    LOTE_CARGA ||--o{ MEDICION : audita
+![ER Diagram](ER_DIAGRAM.svg)
 
-    CONTAMINANTE {
-        char(5) codigo PK
-        varchar(100) nombre
-        varchar(20) unidad
-        real valor_min
-        real valor_max
-    }
+## Entidades
 
-    ESTACION {
-        smallint estacion_id PK
-        char(3) codigo UK
-        date fecha_creacion
-    }
+**CONTAMINANTE** — Catálogo de contaminantes + rangos físicos
+- `codigo` (PK): CO, NO, NO2, NOX, O3, PM10, PM25, PMCO, SO2
+- `nombre`: Nombre descriptivo
+- `unidad`: ppm, ppb, µg/m³
+- `valor_min`, `valor_max`: Rangos físicos válidos
 
-    ESTACION_PERIODO {
-        bigint periodo_id PK
-        smallint estacion_id FK
-        varchar(100) nombre_estacion
-        varchar(50) alcaldia
-        numeric(9,6) latitud
-        numeric(9,6) longitud
-        geography geom
-        date fecha_inicio
-        date fecha_fin "NULL = vigente"
-        boolean activo
-    }
+**ESTACION** — Códigos de estación (surrogate key)
+- `estacion_id` (PK): IDENTITY
+- `codigo`: 3 letras (ACO, LPR, etc.)
+- `fecha_creacion`: Auditoría
 
-    MEDICION {
-        timestamp medido_en PK
-        smallint estacion_id FK
-        char(5) contaminante_codigo FK
-        real valor "NULL permitido"
-    }
+**ESTACION_PERIODO** — Dimensión lenta (SCD Type 2, historia temporal)
+- `periodo_id` (PK): IDENTITY
+- `estacion_id` (FK): Referencia a estación
+- `nombre_estacion`, `alcaldia`: Metadata
+- `latitud`, `longitud`: WGS84 coordinates
+- `geom`: GEOGRAPHY generada para `ST_DWithin()`
+- `fecha_inicio`, `fecha_fin`: Período activo (NULL = vigente)
 
-    LOTE_CARGA {
-        bigint lote_id PK
-        smallint anio
-        timestamp fecha_carga
-        varchar(255) archivo_origen
-        bigint filas_insertadas
-        bigint filas_rechazadas
-        text comentarios
-    }
-```
+**MEDICION** — Tabla de hechos (mediciones horarias)
+- `medido_en` (PK): TIMESTAMP (fecha + hora)
+- `estacion_id` (PK, FK): Referencia a estación
+- `contaminante_codigo` (PK, FK): Referencia a contaminante
+- `valor`: REAL, NULL permitido (datos faltantes)
 
-## Notas de modelado
+## Relaciones
 
-### Normalización (4FN)
-- **Contaminante**: dimensión independiente, cada contaminante con su rango físico
-- **Estacion**: surrogate key (`estacion_id`) para evitar cambios en PK si el código cambia
-- **Estacion_Periodo**: SCD Type 2, permite historia temporal (estaciones que se cierran y reabre)
-- **Medicion**: tabla de hechos desnormalizada (todas las mediciones en una tabla)
-- **Lote_Carga**: auditoría independiente, sin FK desde medicion (evita overhead)
+- **CONTAMINANTE** ←1:N→ **MEDICION** — Un contaminante tiene muchas mediciones
+- **ESTACION** ←1:N→ **ESTACION_PERIODO** — Una estación tiene múltiples períodos (SCD Type 2)
+- **ESTACION_PERIODO** ←1:N→ **MEDICION** — Un período tiene muchas mediciones
 
-### Cardinalidades
-- Un contaminante → muchas mediciones (1:N)
-- Una estación → muchos períodos (1:N, SCD Type 2)
-- Un período → muchas mediciones (1:N)
-- Un lote → audita muchas mediciones (1:N, lógico, sin constraint)
+## Normalización (4FN)
 
-### Características especiales
-- **geom (GEOGRAPHY)**: columna generada de (latitud, longitud) para queries geoespaciales `ST_DWithin()`
-- **fecha_fin IS NULL**: indica período actualmente vigente
-- **valor IS NULL**: permitido, indica medición no disponible
-- **UNIQUE (medido_en, estacion_id, contaminante_codigo)**: previene duplicados
+✅ Todas las entidades en forma normal 4FN:
+- Sin dependencias multivaluadas
+- PK compuesta en MEDICION previene duplicados
+- FK constraints garantizan integridad referencial
+- Triggers validan invariantes (rango de valores, periodos no solapados)
 
-### Constraints e Índices
-- **PK UNIQUE**: previene duplicados de mediciones
-- **FK**: integridad referencial con estacion y contaminante
-- **EXCLUDE GIST**: validado con trigger en estacion_periodo (no periodos solapados)
-- **GIST(geom)**: índice geoespacial para radio-búsquedas
-- **Índices compuestos**: (estacion_id, medido_en), (contaminante_codigo, medido_en), etc.
-- **Trigger validación**: rango físico de valores por contaminante
+## Volúmenes
 
-### Volumen esperado
-- **Contaminantes**: 9 registros
-- **Estaciones**: 54 registros
-- **Periodos**: ~57 registros (SCD Type 2)
-- **Mediciones**: ~55,350,000 registros (horarias, 1986-2026)
+| Tabla | Registros | Notas |
+|-------|-----------|-------|
+| CONTAMINANTE | 9 | Dimensión pequeña |
+| ESTACION | 54 | Dimensión pequeña |
+| ESTACION_PERIODO | ~57 | SCD Type 2 (51 períodos continuos + 3 con gaps) |
+| MEDICION | 50.3M | Hechos (1986-2025, 40 años) |

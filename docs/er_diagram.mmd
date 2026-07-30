@@ -1,0 +1,38 @@
+erDiagram
+    CONTAMINANTE ||--o{ MEDICION : mide
+    ESTACION ||--o{ ESTACION_PERIODO : tiene
+    ESTACION_PERIODO ||--o{ MEDICION : registra
+
+    CONTAMINANTE {
+        string codigo PK
+        string nombre
+        string unidad
+        float valor_min
+        float valor_max
+    }
+
+    ESTACION {
+        int estacion_id PK
+        string codigo
+        date fecha_creacion
+    }
+
+    ESTACION_PERIODO {
+        int periodo_id PK
+        int estacion_id FK
+        string nombre_estacion
+        string alcaldia
+        float latitud
+        float longitud
+        geometry geom
+        date fecha_inicio
+        date fecha_fin
+        boolean activo
+    }
+
+    MEDICION {
+        datetime medido_en PK
+        int estacion_id FK
+        string contaminante_codigo FK
+        float valor
+    }

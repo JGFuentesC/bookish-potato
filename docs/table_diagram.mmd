@@ -1,0 +1,48 @@
+erDiagram
+    CONTAMINANTE ||--o{ MEDICION : mide
+    ESTACION ||--o{ ESTACION_PERIODO : tiene
+    ESTACION_PERIODO ||--o{ MEDICION : registra
+
+    CONTAMINANTE {
+        string codigo PK "CHAR(5)"
+        string nombre "VARCHAR(100)"
+        string unidad "VARCHAR(20)"
+        float valor_min "REAL, DEFAULT 0.0"
+        float valor_max "REAL"
+    }
+
+    ESTACION {
+        int estacion_id PK "SMALLINT IDENTITY"
+        string codigo UK "CHAR(3)"
+        date fecha_creacion "DATE DEFAULT CURRENT_DATE"
+    }
+
+    ESTACION_PERIODO {
+        int periodo_id PK "BIGINT IDENTITY"
+        int estacion_id FK "SMALLINT FK"
+        string nombre_estacion "VARCHAR(100)"
+        string alcaldia "VARCHAR(50)"
+        float latitud "NUMERIC(9,6)"
+        float longitud "NUMERIC(9,6)"
+        geometry geom "GEOGRAPHY GENERATED"
+        date fecha_inicio "DATE"
+        date fecha_fin "DATE NULL=vigente"
+        bool activo "BOOLEAN DEFAULT TRUE"
+    }
+
+    MEDICION {
+        datetime medido_en PK "TIMESTAMP"
+        int estacion_id PK "SMALLINT FK"
+        string contaminante_codigo PK "CHAR(5) FK"
+        float valor "REAL NULL"
+    }
+
+    LOTE_CARGA {
+        int lote_id PK "BIGINT IDENTITY"
+        int anio "SMALLINT"
+        datetime fecha_carga "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        string archivo_origen "VARCHAR(255) NULL"
+        bigint filas_insertadas "BIGINT DEFAULT 0"
+        bigint filas_rechazadas "BIGINT DEFAULT 0"
+        string comentarios "TEXT NULL"
+    }
