@@ -1,7 +1,7 @@
 services:
   postgres:
-    image: pgvector/pgvector:pg16
-    container_name: rama-postgres
+    image: postgis/postgis:16-3.4
+    container_name: rama-postgres-oltp
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-rama}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rama}
@@ -16,19 +16,6 @@ services:
       interval: 3s
       timeout: 3s
       retries: 10
-    restart: unless-stopped
-
-  api:
-    build:
-      context: ./docker/api
-    container_name: rama-api
-    environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-rama}:${POSTGRES_PASSWORD:-rama}@postgres:5432/${POSTGRES_DB:-rama}}
-    ports:
-      - "${API_PORT:-8080}:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
     restart: unless-stopped
 
 volumes:
