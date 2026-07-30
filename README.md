@@ -210,4 +210,6 @@ SELECT
 
 ## Licencia
 
-MIT. Datos: Gobierno de la Ciudad de Mexico (SEDEMA), datos abiertos.
+**GPLv3** (ver `LICENSE`).
+
+Datos: Gobierno de la Ciudad de Mexico (SEDEMA), distribución bajo licencia de datos abiertos.
