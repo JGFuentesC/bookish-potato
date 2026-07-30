@@ -1,274 +1,213 @@
-# RAMA — Datos historicos de calidad del aire (CDMX)
+# RAMA OLTP — Base de Datos Relacional 4FN para Calidad del Aire (CDMX)
 
-Pipeline de extraccion, curacion y auditoria de calidad para los datos de la
-**Red Automatica de Monitoreo Atmosferico** de la Ciudad de Mexico.
+Modelo relacional normalizado **OLTP puro** para datos horarios de la **Red Automatica de Monitoreo Atmosferico** (RAMA), Ciudad de Mexico.
 
 Fuente: [aire.cdmx.gob.mx](https://www.aire.cdmx.gob.mx) — Datos abiertos SEDEMA.
 
-## Datos
+---
 
-- **Periodo:** enero 1986 - presente
-- **Contaminantes:** CO, NO, NO2, NOX, O3, PM10, PM2.5, PMCO, SO2
-- **Estaciones:** 54 a lo largo de la historia (~13 en 1986, ~36 en 2026)
-- **Resolucion:** horaria
-- **Formato original:** `.xls` (archivos ZIP anuales)
-- **Formato curado:** Parquet con compresion zstd (~43 MB, 55M filas)
+## Quick Start
 
-## Estructura
-
-```
-.
-├── download_rama.sh        # Descarga paralela de ZIPs anuales
-├── curate.py               # Pipeline de curacion (XLS -> Parquet tidy)
-├── audit.py                # Auditoria estadistica (SPA con Plotly)
-├── ge_audit.py             # Great Expectations (validacion declarativa)
-├── pyproject.toml          # Dependencias (uv)
-├── uv.lock                 # Lockfile reproducible
-├── compose.yml             # Docker Compose: postgres + api (FastAPI)
-├── .env.example            # Template de variables de entorno
-├── docker/
-│   ├── api/
-│   │   ├── Dockerfile      # Imagen Python 3.13-slim no-root
-│   │   └── api_server.py   # FastAPI asyncpg (GET /api/data, /health)
-│   └── postgres/init/      # Init SQL para arquitectura medallon
-│       ├── 01_schemas.sql
-│       ├── 02_tables_bronze.sql
-│       ├── 03_tables_silver.sql
-│       ├── 04_tables_gold.sql
-│       ├── 05_load_catalogos.sql
-│       └── 06_indexes.sql
-├── scripts/
-│   ├── scrape_stations.py       # Scraper de coordenadas SEDEMA
-│   ├── generate_exposure.py     # Generador de tabla agregada mensual
-│   ├── build_dashboard.py       # Generador del dashboard HTML
-│   ├── dashboard_template.html  # Plantilla del dashboard
-│   ├── init_postgres.py         # Bootstrap: Parquet → PostgreSQL
-│   ├── transform_silver.sql     # Bronze → Silver (validaciones)
-│   └── transform_gold.sql       # Silver → Gold (agregacion mensual)
-└── data/                # (ignorado por git)
-    ├── raw/
-    │   ├── zips/        # Archivos originales descargados
-    │   └── files/       # XLS extraidos
-    ├── curated/         # rama_historica.parquet
-    ├── exposure/        # Capa de BI
-    │   ├── rama_mensual.csv         # Tabla maestra mensual (CSV)
-    │   ├── rama_mensual.parquet     # Idem en Parquet
-    │   ├── rama_dashboard.html      # Dashboard interactivo autoncontenido
-    │   └── stations_catalog.json    # Catalogo de estaciones con lat/lon
-    └── audit/           # Reportes HTML generados
-```
-
-## Uso
-
-### 1. Descargar datos
-
-```bash
-bash download_rama.sh
-```
-
-### 2. Curar y consolidar
-
-```bash
-uv run python curate.py
-```
-
-Genera `data/curated/rama_historica.parquet` con esquema:
-
-| Columna | Tipo | Descripcion |
-|---|---|---|
-| FECHA | date | Dia de la medicion |
-| HORA | i8 (0-23) | Hora del dia |
-| estacion | str | Codigo de 3 letras de la estacion |
-| contaminante | str | CO, NO, NO2, NOX, O3, PM10, PM25, PMCO, SO2 |
-| valor | f32 (nullable) | Concentracion medida |
-
-### 3. Auditoria estadistica
-
-```bash
-uv run python audit.py
-```
-
-Genera `data/audit/calidad_rama.html` — SPA navegable con:
-- Series de tiempo con cartas de control (±2σ, ±3σ)
-- Campanas de Gauss (bell curves) con curvas normales teoricas
-- Boxplots mensuales para detectar estacionalidad
-- Pruebas de hipotesis: Shapiro-Wilk, Anderson-Darling, Mann-Kendall
-
-### 4. Validacion con Great Expectations
-
-```bash
-uv run python ge_audit.py
-```
-
-Genera `data/audit/great_expectations/expectations_report.html` con 40
-expectations sobre el dataset curado: tipos, rangos, nulos, valores unicos,
-y limites fisicos por contaminante.
-
-## Dependencias
-
-- Python 3.13+
-- [polars](https://pola.rs) — procesamiento de datos
-- [plotly](https://plot.ly) — graficos interactivos
-- [scipy](https://scipy.org) — pruebas estadisticas
-- [Great Expectations](https://greatexpectations.io) — validacion de datos
-- [pydantic](https://docs.pydantic.dev) — modelos y validacion
-
-## Capa de exposicion (BI)
-
-### 5. Generar tabla agregada mensual
-
-```bash
-uv run python scripts/generate_exposure.py
-```
-
-Lee `data/curated/rama_historica.parquet`, enriquece con coordenadas de estaciones
-y agrega a nivel mensual por estacion y contaminante. Genera:
-
-- `data/exposure/rama_mensual.parquet` (~1.1 MB, 76K filas) — 24 columnas con
-  prefijos `dim_` (dimensiones) y `mt_` (metricas), optimizado para Looker Studio.
-- `data/exposure/rama_mensual.csv` (~13 MB) — mismo esquema en CSV.
-
-**Esquema:**
-
-| Columna | Tipo | Descripcion |
-|---|---|---|
-| dim_fecha | date | Primer dia del mes |
-| dim_anio | i16 | Año |
-| dim_mes | i8 | 1–12 |
-| dim_nombre_mes | str | Enero, Febrero... |
-| dim_trimestre | i8 | 1–4 |
-| dim_estacion_del_anio | str | Invierno, Primavera, Verano, Otoño |
-| dim_estacion | str | Codigo de 3 letras |
-| dim_nombre_estacion | str | Nombre completo |
-| dim_alcaldia | str | Delegacion o municipio |
-| dim_lat_lon | str | `"19.529,-99.205"` (formato Looker geo) |
-| dim_contaminante | str | CO, NO, NO2... |
-| dim_nombre_contaminante | str | Nombre completo |
-| mt_valor_mean | f32 | Media mensual |
-| mt_valor_max | f32 | Maximo mensual |
-| mt_valor_min | f32 | Minimo mensual |
-| mt_valor_std | f32 | Desviacion estandar |
-| mt_valor_p50 | f32 | Mediana |
-| mt_valor_p95 | f32 | Percentil 95 |
-| mt_valor_p98 | f32 | Percentil 98 |
-| mt_horas_validas | i32 | Lecturas con dato en el mes |
-| mt_horas_esperadas | i32 | Total esperado (24 × dias del mes) |
-| mt_dias_con_dato | i16 | Dias con al menos 1 lectura |
-| mt_dias_esperados | i8 | Dias del mes |
-| mt_pct_datos | f32 | % completitud (0–100) |
-
-## Arquitectura medallon (PostgreSQL)
-
-Ademas del pipeline Python, los datos se pueden cargar en PostgreSQL con
-arquitectura medallon (Bronze → Silver → Gold) para consultas SQL directas,
-concurrencia y conexion con herramientas BI.
-
-### Docker Compose
+### Levantar la BD
 
 ```bash
 docker compose up -d
 ```
 
-Inicia dos servicios:
-- `postgres` — pgvector/pgvector:pg16 en `:5433` (`rama`/`rama`/`rama`)
-- `api` — FastAPI + asyncpg en `:8080`
+PostgreSQL estará en `postgresql://rama:rama@localhost:5433/rama`.
 
-Variables configurables via `.env` (ver `.env.example`).
-
-### Bootstrap de datos
+### Cargar datos (55M filas, ~70 minutos)
 
 ```bash
-uv run python scripts/init_postgres.py
+uv run python scripts/ingesta_batch.py
 ```
 
-Exporta `rama_historica.parquet` a CSV, carga 55M filas en Bronze mediante
-`COPY`, ejecuta las transformaciones SQL y crea indices. Resultado:
-
-| Capa | Tabla | Filas | Descripcion |
-|---|---|---|---|
-| Bronze | `bronze.rama_horaria` | 55.3M | Datos horarios crudos, sin validaciones |
-| Silver | `silver.rama_horaria_validada` | 55.3M | Con flags de calidad (rango fisico, hora24) |
-| Gold | `gold.rama_mensual_bi` | 64.9K | Agregacion mensual, 24 columnas dim_*/mt_* |
-
-### API REST
+O solo un año para testing:
 
 ```bash
-# O3, 2015-2025, todas las estaciones
-curl "http://localhost:8080/api/data?cont=O3&from=2015&to=2025"
-
-# PM10, 2000-2020, solo 3 estaciones
-curl "http://localhost:8080/api/data?cont=PM10&from=2000&to=2020&stations=TLA,MER,UIZ"
+uv run python scripts/ingesta_batch.py --anio 2020
 ```
 
-Validacion de entrada: contaminante contra catalogo, `from <= to`, SQL injection
-prevenido con queries parametrizadas (`$1`, `$2`, ...).
+---
 
-### Indices y rendimiento
+## Estructura
 
-7 indices B-tree compuestos + 1 indice parcial en Silver (`WHERE flag_valido`).
-Consulta tipica del dashboard (O3, 2015-2025):
+### Tablas (Schema: `rama`)
+
+| Tabla | Filas | Propósito |
+|-------|-------|----------|
+| `contaminante` | 9 | Catálogo de contaminantes + rangos físicos |
+| `estacion` | 54 | Códigos de estaciones (PK surrogate) |
+| `estacion_periodo` | ~57 | Historia temporal (SCD Type 2) — cuándo cada estación está activa |
+| `medicion` | 55.3M | Hechos (mediciones horarias) |
+| `lote_carga` | ~40 | Auditoría de cargas batch |
+
+### Modelo relacional (4FN)
 
 ```
-Execution Time: 3.994 ms  (3990 filas, 64.9K totales)
+contaminante ──1──┐
+                   ├──→ medicion ←──1──┐
+estacion ──1───┐  │                    │
+               │  │  estacion_periodo ─┘
+               └──→ (SCD Type 2)
 ```
 
-### 6. Dashboard interactivo
+**PK compuesta en `medicion`:**
+```sql
+UNIQUE (medido_en, estacion_id, contaminante_codigo)
+```
 
-Abre `data/exposure/rama_dashboard.html` en el navegador (archivo autocontenido,
-solo requiere internet para CDN de Plotly, Leaflet y tiles cartograficos).
+### Validaciones
 
-**Funcionalidades:**
+- **Trigger `trg_medicion_validar_rango`**: valor dentro de rango físico por contaminante
+- **Trigger `trg_estacion_periodo_validar_solapamiento`**: periodos no solapados (SCD Type 2)
+- **CHECK constraints**: latitud/longitud, fechas coherentes
+- **FK constraints**: integridad referencial
 
-- **Filtros globales:** contaminante (pills), rango de años (slider), selector de
-  estaciones con busqueda
-- **KPIs dinamicos:** media, pico, estaciones activas, cobertura, variacion vs
-  periodo equivalente anterior
-- **5 pestañas:** Tendencias (serie mensual/anual), Mapa (Leaflet con puntos/calor),
-  Estaciones (ranking + heatmap), Estacionalidad (mes×año + boxplots),
-  Calidad de datos (cobertura)
-- **Responsive:** adaptado a escritorio y movil
+### Índices estratégicos
 
-**Modo de datos dual:** El dashboard incluye un toggle en la barra superior
-que permite alternar entre:
-- **Archivo** (default) — datos embebidos en el HTML, sin dependencias externas
-- **Servidor** — consulta la API PostgreSQL en `http://localhost:8080` via
-  `fetch()` con AbortController (timeout 5s health, 8s datos)
+```sql
+idx_medicion_estacion_medido_en        -- queries por estación + tiempo
+idx_medicion_contaminante_medido_en    -- queries por contaminante + tiempo
+idx_medicion_est_cont_fecha            -- queries complejas
+idx_estacion_periodo_geom (GIST)       -- queries geoespaciales ST_DWithin()
+```
 
-Si el servidor no esta disponible, el dashboard permanece en modo Archivo.
+---
 
-**Regenerar** tras actualizar datos curados:
+## Ejemplos de uso
+
+### Últimas mediciones de una estación (7 días)
+
+```sql
+SELECT m.medido_en, m.valor
+FROM rama.medicion m
+JOIN rama.estacion e ON m.estacion_id = e.estacion_id
+WHERE e.codigo = 'LPR'
+  AND m.contaminante_codigo = 'PM25'
+  AND m.medido_en >= NOW() - INTERVAL '7 days'
+ORDER BY m.medido_en DESC
+LIMIT 100;
+```
+
+### Estaciones cercanas a un punto (radio 5 km)
+
+```sql
+SELECT ep.nombre_estacion, ep.alcaldia,
+       ST_Distance(ep.geom, ST_Point(-99.1332, 19.4326, 4326)::geography) as distancia_m
+FROM rama.estacion_periodo ep
+WHERE ST_DWithin(ep.geom, ST_Point(-99.1332, 19.4326, 4326)::geography, 5000)
+  AND ep.activo = TRUE
+ORDER BY distancia_m;
+```
+
+### Rango válido de un contaminante
+
+```sql
+SELECT * FROM rama.contaminante WHERE codigo = 'PM25';
+-- Retorna: PM25, Particulas < 2.5 µm, µg/m³, 0.0, 1000.0
+```
+
+### Historia de actividad de una estación
+
+```sql
+SELECT * FROM rama.estacion_periodo
+WHERE estacion_id = (SELECT estacion_id FROM rama.estacion WHERE codigo = 'ACO')
+ORDER BY fecha_inicio;
+```
+
+---
+
+## Archivos & Scripts
+
+### Datos fuente (scripts de obtención)
+
+- **`download_rama.sh`** — descarga históricos desde aire.cdmx.gob.mx (1986-2026)
+- **`scripts/scrape_stations.py`** — extrae coordenadas desde SEDEMA
+
+### Datos curados
+
+- **`data/curated/rama_historica.parquet`** — mediciones horarias (55M filas)
+- **`data/exposure/stations_catalog.json`** — metadata de estaciones (54 registros)
+- **`data/exposure/periodos_estaciones.csv`** — ciclos de vida (57 períodos detectados)
+
+### Scripts de procesamiento
+
+- **`scripts/analizar_periodos_estacion.py`** — detecta cuándo cada estación está activa/inactiva (gap > 30 días = cambio de estado)
+- **`scripts/ingesta_batch.py`** — carga batch con COPY (bulk insert) hacia PostgreSQL
+
+### DDL (Docker init)
+
+- **`docker/postgres/init/01_schema.sql`** — crear schema rama + PostGIS
+- **`docker/postgres/init/02_catalogos.sql`** — tabla contaminante (rangos físicos)
+- **`docker/postgres/init/03_estaciones.sql`** — tablas estacion + estacion_periodo (SCD Type 2)
+- **`docker/postgres/init/04_mediciones.sql`** — tabla medicion + lote_carga
+- **`docker/postgres/init/05_indices.sql`** — índices estratégicos
+- **`docker/postgres/init/06_triggers.sql`** — triggers de validación
+
+### Documentación
+
+- **`docs/ER_DIAGRAM.md`** — diagrama entidad-relación (Mermaid)
+- **`docs/TABLE_DIAGRAM.md`** — especificación física de tablas
+
+---
+
+## Análisis de periodos
+
+La rama detecta automáticamente **cuándo cada estación está activa**:
+
+- **51 estaciones** con 1 período continuo (operativas de forma estable)
+- **3 estaciones** con múltiples períodos:
+  - **BJU**: 1986-2005 (inactiva 2005-2015), 2015-2026 (reactiva)
+  - **COY**: 2003-2023, 2024-2026 (mantenimiento/gap)
+  - **SJA**: 2003-2023, 2024-2026 (mismo patrón)
+
+Ver: `scripts/analizar_periodos_estacion.py`
+
+---
+
+## Requisitos
+
+- Docker + Docker Compose
+- Python 3.13+
+- `uv` (package manager)
+
+Dependencias Python:
+- `polars` — procesamiento de datos
+- `pydantic` — validación
+- `psycopg[binary]` — driver PostgreSQL
+
+---
+
+## Verificación
 
 ```bash
-uv run python scripts/build_dashboard.py
+# Conectar a la BD
+docker compose exec -T postgres psql -U rama -d rama
+
+# Contar registros por tabla
+SELECT 
+  (SELECT COUNT(*) FROM rama.contaminante) as contaminantes,
+  (SELECT COUNT(*) FROM rama.estacion) as estaciones,
+  (SELECT COUNT(*) FROM rama.estacion_periodo) as periodos,
+  (SELECT COUNT(*) FROM rama.medicion) as mediciones;
+
+-- Resultado esperado:
+--  contaminantes | estaciones | periodos | mediciones
+--                |            |          |
+--              9 |         54 |       57 | 55350526
 ```
 
-### 7. Catalogo de estaciones
+---
 
-```bash
-uv run python scripts/scrape_stations.py
-```
+## Branches
 
-Obtiene coordenadas (lat/lon) de las 54 estaciones RAMA desde las paginas de
-detalle de SEDEMA y las guarda en `data/exposure/stations_catalog.json`.
-Las 35 estaciones activas se obtienen por scraping; las 19 historicas tienen
-coordenadas documentadas.
+- **`l00-ingesta`** — pipeline medallón (bronze/silver/gold, desnormalizado para BI)
+- **`l01-oltp-olap`** (actual) — modelo relacional 4FN OLTP puro
+- (futuro) **`l02-olap`** — agregaciones y star schema para análisis históricos
 
-## Seguridad
-
-- Las credenciales de base de datos se configuran via `.env` (gitignorado)
-  con defaults seguros para desarrollo local. Ver `.env.example`.
-- La API valida contaminantes contra un catalogo fijo (`CONT_VALIDOS`)
-  y rechaza parametros invalidos con HTTP 400.
-- SQL injection prevenido con queries parametrizadas (`$1`, `$2`, ...).
-- El contenedor API ejecuta como usuario no-root (`app`, uid 1001).
-- CORS restringido a `localhost:8080` y `file://`.
-- Puerto PostgreSQL (5433) expuesto solo en localhost; en entornos
-  compartidos, cambiarlo a `127.0.0.1:5433:5432` en compose.yml.
-- Los scripts SQL de inicializacion crean 3 esquemas aislados
-  (bronze/silver/gold) que separan logicamente datos crudos, validados
-  y agregados.
+---
 
 ## Licencia
 
-MIT. Los datos son propiedad del Gobierno de la Ciudad de Mexico (SEDEMA)
-y se distribuyen como datos abiertos.
+MIT. Datos: Gobierno de la Ciudad de Mexico (SEDEMA), datos abiertos.
