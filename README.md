@@ -267,11 +267,13 @@ Dependencias Python (vía `uv`):
 
 ## Verificación
 
+### OLTP
+
 ```bash
 # Conectar a la BD
 docker compose exec -T postgres psql -U rama -d rama
 
-# Contar registros por tabla
+# Contar registros por tabla (schema rama)
 SELECT 
   (SELECT COUNT(*) FROM rama.contaminante) as contaminantes,
   (SELECT COUNT(*) FROM rama.estacion) as estaciones,
@@ -282,6 +284,44 @@ SELECT
 --  contaminantes | estaciones | periodos | mediciones
 --                |            |          |
 --              9 |         54 |       57 | 55350526
+```
+
+### OLAP + API
+
+```bash
+# Conectar a la BD
+docker compose exec -T postgres psql -U rama -d rama
+
+# Contar registros en cubo (schema rama_olap)
+SELECT
+  (SELECT COUNT(*) FROM rama_olap.dim_tiempo) as dim_tiempo,
+  (SELECT COUNT(*) FROM rama_olap.dim_alcaldia) as dim_alcaldia_limpia,
+  (SELECT COUNT(*) FROM rama_olap.dim_contaminante) as dim_contaminante,
+  (SELECT COUNT(*) FROM rama_olap.dim_estacion) as dim_estacion,
+  (SELECT COUNT(*) FROM rama_olap.fact_medicion_hora) as fact_mediciones,
+  (SELECT COUNT(*) FROM rama_olap.agg_medicion_diaria) as agg_diaria,
+  (SELECT COUNT(*) FROM rama_olap.agg_medicion_mensual) as agg_mensual;
+
+-- Resultado esperado:
+--  dim_tiempo | dim_alcaldia_limpia | dim_contaminante | dim_estacion | fact_mediciones | agg_diaria | agg_mensual
+--  350,640    | 26                  | 9                | 54           | 50.3M           | ~13.8M     | ~468K
+```
+
+```bash
+# Probar API
+curl http://localhost:8080/health
+# {"status":"ok"}
+
+curl http://localhost:8080/api/kpis
+# Retorna KPIs del período por defecto (últimos 12 meses)
+
+# Ver documentación interactiva
+open http://localhost:8080/docs
+```
+
+```bash
+# Dashboard en navegador
+open http://localhost:8080
 ```
 
 ---
