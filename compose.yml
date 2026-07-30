@@ -18,5 +18,19 @@ services:
       retries: 10
     restart: unless-stopped
 
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    container_name: rama-api
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://rama:rama@postgres:5432/rama}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pgdata:

@@ -1,22 +1,29 @@
-# RAMA OLTP — Base de Datos Relacional 4FN para Calidad del Aire (CDMX)
+# RAMA — OLTP + Cubo OLAP + Dashboard BI
 
-Modelo relacional normalizado **OLTP puro** para datos horarios de la **Red Automatica de Monitoreo Atmosferico** (RAMA), Ciudad de Mexico.
+Base de datos relacional **OLTP 4FN** + cubo analítico **Snowflake OLAP** + dashboard **McKinsey/PwC** para calidad del aire (CDMX/ZMVM).
 
-Fuente: [aire.cdmx.gob.mx](https://www.aire.cdmx.gob.mx) — Datos abiertos SEDEMA.
+Datos: [aire.cdmx.gob.mx](https://www.aire.cdmx.gob.mx) — Red Automatica de Monitoreo Atmosferico (SEDEMA), datos abiertos.
+
+**Branches**:
+- `main` — lanzamientos estables
+- `l01-oltp-olap` — desarrollo actual (rama OLTP + OLAP)
+- `l00-ingesta` — pipeline ETL medallón (anterior)
 
 ---
 
 ## Quick Start
 
-### Levantar la BD
+### 1. Levantar servicios (PostgreSQL + API FastAPI)
 
 ```bash
 docker compose up -d
 ```
 
-PostgreSQL estará en `postgresql://rama:rama@localhost:5433/rama`.
+- PostgreSQL (OLTP): `postgresql://rama:rama@localhost:5433/rama`
+- API FastAPI: `http://localhost:8080`
+- Dashboard: `http://localhost:8080/`
 
-### Cargar datos (55M filas, ~70 minutos)
+### 2. Cargar datos OLTP (55M filas, ~70 minutos)
 
 ```bash
 uv run python scripts/ingesta_batch.py
@@ -27,6 +34,63 @@ O solo un año para testing:
 ```bash
 uv run python scripts/ingesta_batch.py --anio 2020
 ```
+
+### 3. Construir cubo OLAP (dimensiones + fact + agregados, ~30-40 minutos)
+
+```bash
+uv run python scripts/construir_olap.py
+```
+
+Una vez completado, el dashboard en `http://localhost:8080/` estará activo y consultará el cubo vía `/api/*`.
+
+**Opcional**: Reconstruir solo un año
+```bash
+uv run python scripts/construir_olap.py --anio 2020
+```
+
+---
+
+## Dashboard OLAP
+
+Interfaz web corporativa (McKinsey/PwC) para explorar el cubo:
+
+- **URL**: `http://localhost:8080/`
+- **Filtros**: Contaminante (pills), alcaldía/estación (select), período (date range), granularidad (hora/día/mes)
+- **Tabs**:
+  1. **Resumen** — serie temporal con min/max
+  2. **Mapa** — estaciones coloreadas por índice normalizado (Leaflet)
+  3. **Rankings** — top/bottom estaciones y contaminantes
+  4. **Calidad de Datos** — % completitud por contaminante/estación/año
+- **KPIs**: Índice promedio, % completitud, estaciones activas, total mediciones
+- **Charts**: Plotly (series, barras), Leaflet (mapa)
+- **API**: Endpoints REST `/api/*` para programar consultas personalizadas
+
+### API FastAPI (`/api`)
+
+| Endpoint | Método | Descripción |
+|----------|--------|-------------|
+| `/health` | GET | Healthcheck |
+| `/api/dimensiones/{tipo}` | GET | contaminantes \| categorias \| estaciones \| alcaldias |
+| `/api/kpis` | GET | KPIs agregados (índice, completitud, estaciones, mediciones) |
+| `/api/series-tiempo` | GET | Serie temporal (hora/día/mes), filtrable |
+| `/api/mapa-estaciones` | GET | Últimas lecturas por estación |
+| `/api/ranking/estaciones` | GET | Top/bottom estaciones por índice |
+| `/api/ranking/contaminantes` | GET | Top contaminantes por índice |
+| `/api/completitud` | GET | % completitud agrupado (contaminante/estación/año) |
+
+Documentación interactiva Swagger: `http://localhost:8080/docs`
+
+### Índice Normalizado (0-100)
+
+Escala agnóstica a unidades, calculada de rangos físicos en catálogo:
+
+```
+indice = 100 * (valor - valor_min) / (valor_max - valor_min)
+```
+
+**Ventaja**: Defendible (datos ya en BD), comparable entre contaminantes.
+
+**Nota**: Solo O3 tiene breakpoints IMECA verificados (NADF-009-AIRE-2006). Ver `docs/OLAP_SCHEMA.md` para detalles.
 
 ---
 
@@ -134,21 +198,41 @@ ORDER BY fecha_inicio;
 ### Scripts de procesamiento
 
 - **`scripts/analizar_periodos_estacion.py`** — detecta cuándo cada estación está activa/inactiva (gap > 30 días = cambio de estado)
-- **`scripts/ingesta_batch.py`** — carga batch con COPY (bulk insert) hacia PostgreSQL
+- **`scripts/ingesta_batch.py`** — carga batch OLTP con COPY (55M filas)
+- **`scripts/construir_olap.py`** — construye cubo Snowflake: dimensiones + fact + agregados
 
 ### DDL (Docker init)
 
-- **`docker/postgres/init/01_schema.sql`** — crear schema rama + PostGIS
-- **`docker/postgres/init/02_catalogos.sql`** — tabla contaminante (rangos físicos)
-- **`docker/postgres/init/03_estaciones.sql`** — tablas estacion + estacion_periodo (SCD Type 2)
-- **`docker/postgres/init/04_mediciones.sql`** — tabla medicion + lote_carga
-- **`docker/postgres/init/05_indices.sql`** — índices estratégicos
-- **`docker/postgres/init/06_triggers.sql`** — triggers de validación
+**OLTP** (`docker/postgres/init/`)
+- **`01_schema.sql`** — crear schema rama + PostGIS
+- **`02_catalogos.sql`** — tabla contaminante (rangos físicos)
+- **`03_estaciones.sql`** — tablas estacion + estacion_periodo (SCD Type 2)
+- **`04_mediciones.sql`** — tabla medicion + lote_carga
+- **`05_indices.sql`** — índices estratégicos
+- **`06_triggers.sql`** — triggers de validación
+
+**OLAP** (`docker/postgres/olap/`) — se ejecuta manualmente después de cargar OLTP
+- **`01_schema_olap.sql`** — crear schema rama_olap
+- **`02_dimensiones.sql`** — dim_tiempo, dim_alcaldia (limpia), dim_categoria_contaminante, dim_contaminante, dim_estacion, dim_calidad_aire_imeca
+- **`03_fact.sql`** — fact_medicion_hora + índices
+- **`04_agregados.sql`** — agg_medicion_diaria, agg_medicion_mensual (vistas materializadas)
+
+### API & Dashboard
+
+- **`api/main.py`** — app FastAPI, 8 endpoints `/api/*`
+- **`api/db.py`** — ConnectionPool psycopg
+- **`api/consultas.py`** — lógica SQL contra rama_olap.*
+- **`api/schemas.py`** — modelos Pydantic de respuesta
+- **`api/static/index.html`** — dashboard (Inter, nav, tabs, filtros)
+- **`api/static/app.js`** — estado, fetch `/api/*`, render Plotly/Leaflet
+- **`api/static/estilos.css`** — paleta corporativa (navy + acento azul)
+- **`docker/api/Dockerfile`** — build FastAPI app
 
 ### Documentación
 
-- **`docs/ER_DIAGRAM.md`** — diagrama entidad-relación (Mermaid)
-- **`docs/TABLE_DIAGRAM.md`** — especificación física de tablas
+- **`docs/ER_DIAGRAM.md`** — diagrama entidad-relación OLTP (Mermaid)
+- **`docs/TABLE_DIAGRAM.md`** — especificación física OLTP
+- **`docs/OLAP_SCHEMA.md`** — diseño cubo Snowflake, dimensiones, fact, agregados
 
 ---
 
@@ -168,14 +252,16 @@ Ver: `scripts/analizar_periodos_estacion.py`
 
 ## Requisitos
 
-- Docker + Docker Compose
+- Docker + Docker Compose (v2+)
 - Python 3.13+
 - `uv` (package manager)
 
-Dependencias Python:
+Dependencias Python (vía `uv`):
 - `polars` — procesamiento de datos
 - `pydantic` — validación
-- `psycopg[binary]` — driver PostgreSQL
+- `psycopg[binary,pool]` — driver PostgreSQL + pool conexiones
+- `fastapi` — framework API REST
+- `uvicorn[standard]` — servidor ASGI
 
 ---
 
@@ -200,11 +286,24 @@ SELECT
 
 ---
 
-## Branches
+## Estado
 
-- **`l00-ingesta`** — pipeline medallón (bronze/silver/gold, desnormalizado para BI)
-- **`l01-oltp-olap`** (actual) — modelo relacional 4FN OLTP puro
-- (futuro) **`l02-olap`** — agregaciones y star schema para análisis históricos
+**Rama actual**: `l01-oltp-olap` (OLTP + OLAP + Dashboard)
+
+Completado ✓:
+- OLTP 4FN normalizado (schema `rama`, 50.3M mediciones)
+- Cubo OLAP Snowflake (schema `rama_olap`, 26 dimensiones normalizadas, 50.3M fact, agregados)
+- API FastAPI (8 endpoints REST)
+- Dashboard McKinsey/PwC (4 tabs, filtros, KPIs, charts Plotly, mapa Leaflet)
+- Limpieza de datos sucios (alcaldías con HTML entities → 26 canónicas)
+- Índice normalizado (0-100, agnóstico a unidades)
+
+En progreso:
+- Completar IMECA breakpoints (O3 verificado, demás pendientes de SEDEMA)
+
+**Otras ramas**:
+- **`l00-ingesta`** — pipeline medallón (bronze/silver/gold, desnormalizado para BI, anterior)
+- **`main`** — lanzamientos estables
 
 ---
 

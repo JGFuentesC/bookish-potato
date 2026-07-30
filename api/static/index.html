@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAMA Cubo OLAP · Calidad del aire CDMX/ZMVM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nouislider@15.8.1/dist/nouislider.min.css">
+<script src="https://cdn.plot.ly/plotly-3.1.0.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/nouislider@15.8.1/dist/nouislider.min.js"></script>
+<link rel="stylesheet" href="/estilos.css">
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="brand">
+    <h1>RAMA Cubo OLAP</h1>
+    <span>Calidad del aire · CDMX/ZMVM</span>
+  </div>
+</div>
+
+<!-- Filtros -->
+<div class="filters">
+  <div class="filter-group">
+    <label class="filter-label">CONTAMINANTE</label>
+    <div class="pills" id="contaminant-pills"></div>
+  </div>
+
+  <div class="filter-group">
+    <label class="filter-label">ALCALDÍA</label>
+    <select id="alcaldia-select" style="border: 1px solid var(--border-strong); padding: 6px 12px; border-radius: 8px; font-family: var(--font); font-size: 12.5px;">
+      <option value="">Todas</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label class="filter-label">ESTACIÓN</label>
+    <select id="estacion-select" style="border: 1px solid var(--border-strong); padding: 6px 12px; border-radius: 8px; font-family: var(--font); font-size: 12.5px;">
+      <option value="">Todas</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label class="filter-label">PERÍODO</label>
+    <div style="display: flex; gap: 10px;">
+      <input type="date" id="fecha-inicio" style="border: 1px solid var(--border-strong); padding: 6px 12px; border-radius: 8px; font-family: var(--font); font-size: 12.5px;">
+      <input type="date" id="fecha-fin" style="border: 1px solid var(--border-strong); padding: 6px 12px; border-radius: 8px; font-family: var(--font); font-size: 12.5px;">
+    </div>
+  </div>
+
+  <div class="filter-group">
+    <label class="filter-label">GRANULARIDAD</label>
+    <div style="display: flex; gap: 6px;">
+      <button class="pill active" data-granularidad="dia">Día</button>
+      <button class="pill" data-granularidad="mes">Mes</button>
+      <button class="pill" data-granularidad="hora" id="btn-hora">Hora</button>
+    </div>
+  </div>
+
+  <button class="reset-btn" id="reset-btn">Reiniciar</button>
+</div>
+
+<!-- KPIs -->
+<div class="kpis" id="kpis-container"></div>
+
+<!-- Tabs -->
+<div style="padding: 0 24px;">
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="resumen">Resumen</button>
+    <button class="tab-btn" data-tab="mapa">Mapa</button>
+    <button class="tab-btn" data-tab="rankings">Rankings</button>
+    <button class="tab-btn" data-tab="datos">Calidad de Datos</button>
+  </div>
+</div>
+
+<!-- Tab Content -->
+<div style="padding: 24px;">
+
+  <!-- TAB: Resumen -->
+  <div id="tab-resumen" class="tab-content" style="display: block;">
+    <div class="card">
+      <h3 style="margin-bottom: 16px;">Serie temporal</h3>
+      <div id="chart-serie-tiempo" style="width: 100%; height: 400px;"></div>
+    </div>
+  </div>
+
+  <!-- TAB: Mapa -->
+  <div id="tab-mapa" class="tab-content" style="display: none;">
+    <div class="card">
+      <h3 style="margin-bottom: 16px;">Estaciones (últimas mediciones)</h3>
+      <div id="map-container" style="width: 100%; height: 500px; border-radius: 10px; overflow: hidden;"></div>
+    </div>
+  </div>
+
+  <!-- TAB: Rankings -->
+  <div id="tab-rankings" class="tab-content" style="display: none;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+      <div class="card">
+        <h3 style="margin-bottom: 16px;">Top Estaciones</h3>
+        <table id="ranking-estaciones" style="width: 100%; font-size: 12.5px; border-collapse: collapse;">
+          <thead style="border-bottom: 1px solid var(--border);">
+            <tr><th style="text-align: left; padding: 8px;">Pos</th><th>Estación</th><th>Índice</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3 style="margin-bottom: 16px;">Top Contaminantes</h3>
+        <table id="ranking-contaminantes" style="width: 100%; font-size: 12.5px; border-collapse: collapse;">
+          <thead style="border-bottom: 1px solid var(--border);">
+            <tr><th style="text-align: left; padding: 8px;">Pos</th><th>Contaminante</th><th>Índice</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Calidad de datos -->
+  <div id="tab-datos" class="tab-content" style="display: none;">
+    <div class="card">
+      <h3 style="margin-bottom: 16px;">% Completitud por contaminante</h3>
+      <div id="chart-completitud" style="width: 100%; height: 300px;"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
