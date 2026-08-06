@@ -1,0 +1,73 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: finanzas-mysql
+    command:
+      - --local-infile=1
+      - --innodb-buffer-pool-size=1G
+      - --max_connections=200
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: finanzas
+      MYSQL_ETL_PASSWORD: ${MYSQL_ETL_PASSWORD}
+      MYSQL_DASHBOARDS_PASSWORD: ${MYSQL_DASHBOARDS_PASSWORD}
+      TZ: UTC
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+    mem_limit: 3g
+    pids_limit: 1024
+
+  superset:
+    build: ./docker/superset
+    image: finanzas-superset
+    container_name: finanzas-superset
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+      TZ: UTC
+    ports:
+      - "127.0.0.1:8088:8088"
+    depends_on:
+      superset-init:
+        condition: service_completed_successfully
+    volumes:
+      - superset_home:/app/superset_home
+    restart: unless-stopped
+    mem_limit: 2g
+    pids_limit: 512
+
+  superset-init:
+    build: ./docker/superset
+    image: finanzas-superset
+    container_name: finanzas-superset-init
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+      SUPERSET_ADMIN_USER: ${SUPERSET_ADMIN_USER}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD}
+      MYSQL_HOST: mysql
+      MYSQL_DASHBOARDS_USER: ${MYSQL_DASHBOARDS_USER}
+      MYSQL_DASHBOARDS_PASSWORD: ${MYSQL_DASHBOARDS_PASSWORD}
+      TZ: UTC
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - superset_home:/app/superset_home
+      - ./docker/superset/init:/docker/superset-init:ro
+    command: ["bash", "/docker/superset-init/init.sh"]
+    restart: "no"
+
+volumes:
+  mysql_data:
+  superset_home:

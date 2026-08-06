@@ -1,0 +1,31 @@
+classDiagram
+    direction LR
+    class lista {
+        +id : int <<PK>>
+        +codigo : varchar(10) <<UK>>
+        +nombre : varchar(60)
+    }
+    class ticker {
+        +id : int <<PK>>
+        +simbolo : varchar(20) <<UK>>
+        +nombre : varchar(255)
+        +sector : varchar(80)
+        +subsector : varchar(120)
+    }
+    class ticker_lista {
+        +ticker_id : int <<PK, FK>>
+        +lista_id : int <<PK, FK>>
+    }
+    class precio {
+        +ticker_id : int <<PK, FK>>
+        +fecha : date <<PK>>
+        +open : decimal(18,6)
+        +high : decimal(18,6)
+        +low : decimal(18,6)
+        +close : decimal(18,6)
+        +adj_close : decimal(18,6)
+        +volumen : bigint
+    }
+    lista "1" o-- "0..*" ticker_lista
+    ticker "1" o-- "0..*" ticker_lista
+    ticker "1" o-- "0..*" precio

@@ -1,9 +1,30 @@
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
+build/
 dist/
-.env
 .venv/
+
+# Entornos / secretos
+.env
+.env.local
+*.pem
+
+# Cachés y calidad de código
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# Datos de mercado (grandes, regenerables con scripts/)
+data/
+
+# Logs y SO
 *.log
 .DS_Store
-data/
+Thumbs.db
+.idea/
+*.swp

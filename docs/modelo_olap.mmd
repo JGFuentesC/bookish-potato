@@ -1,0 +1,86 @@
+erDiagram
+    DIM_ANIO ||--o{ DIM_MES : "nivel año"
+    DIM_MES ||--o{ DIM_FECHA : "nivel mes"
+    DIM_SECTOR ||--o{ DIM_SUBSECTOR : "nivel sector"
+    DIM_SUBSECTOR ||--o{ DIM_EMPRESA : "nivel subsector"
+
+    DIM_FECHA ||--o{ FACT_PRECIO_DIARIO : "tiene"
+    DIM_EMPRESA ||--o{ FACT_PRECIO_DIARIO : "cotiza"
+    DIM_FECHA ||--o{ FACT_PRECIO_MENSUAL : "agrega"
+    DIM_EMPRESA ||--o{ FACT_PRECIO_MENSUAL : "acumula"
+    DIM_EMPRESA ||--o{ HECHO_MEMBRESIA : "pertenece a"
+    DIM_LISTA ||--o{ HECHO_MEMBRESIA : "incluye"
+
+    DIM_ANIO {
+        smallint anio_id PK
+        smallint anio UK
+        smallint decada
+    }
+    DIM_MES {
+        int mes_id PK "anio*100+mes"
+        tinyint mes_num
+        varchar(9) mes_nombre
+        smallint anio_id FK
+    }
+    DIM_FECHA {
+        int fecha_id PK "YYYYMMDD"
+        date fecha UK
+        tinyint dia_num
+        tinyint dia_semana "1=Lun..7=Dom"
+        varchar(9) dia_semana_nombre
+        varchar(7) semana_iso
+        tinyint es_fin_semana
+        tinyint es_ultimo_dia_mes
+        int mes_id FK
+    }
+    DIM_SECTOR {
+        smallint sector_id PK
+        varchar(80) sector_nombre UK
+    }
+    DIM_SUBSECTOR {
+        int subsector_id PK
+        varchar(120) subsector_nombre UK
+        smallint sector_id FK
+    }
+    DIM_EMPRESA {
+        int empresa_id PK
+        varchar(20) simbolo UK
+        varchar(255) nombre
+        int subsector_id FK
+    }
+    DIM_LISTA {
+        int lista_id PK
+        varchar(10) codigo UK
+        varchar(60) nombre
+    }
+    FACT_PRECIO_DIARIO {
+        int empresa_id PK, FK
+        int fecha_id PK, FK
+        decimal open "precision 18,6"
+        decimal high "precision 18,6"
+        decimal low "precision 18,6"
+        decimal close "precision 18,6"
+        decimal adj_close "precision 18,6"
+        bigint volumen
+        decimal retorno_diario "precalculado"
+        decimal retorno_log "precalculado"
+        decimal retorno_ajustado "precalculado"
+        decimal rango "precalculado"
+        decimal volumen_dolares "precalculado"
+    }
+    FACT_PRECIO_MENSUAL {
+        int empresa_id PK, FK
+        int mes_id PK, FK
+        decimal open_primero "precision 18,6"
+        decimal close_ultimo "precision 18,6"
+        decimal high_max "precision 18,6"
+        decimal low_min "precision 18,6"
+        bigint volumen_total
+        decimal retorno_mensual "precalculado"
+        decimal volatilidad_mensual "precalculado"
+        int n_dias
+    }
+    HECHO_MEMBRESIA {
+        int empresa_id PK, FK
+        int lista_id PK, FK
+    }

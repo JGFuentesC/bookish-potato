@@ -1,0 +1,11 @@
+[project]
+name = "bookish-potato"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.28.1",
+    "lxml>=6.1.1",
+    "pandas>=3.0.5",
+    "pymysql>=1.2.0",
+    "requests>=2.34.2",
+]

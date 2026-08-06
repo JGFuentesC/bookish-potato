@@ -1,0 +1,34 @@
+erDiagram
+    LISTA ||--o{ TICKER_LISTA : "agrupa"
+    TICKER ||--o{ TICKER_LISTA : "pertenece a"
+    TICKER ||--o{ PRECIO : "cotiza"
+
+    LISTA {
+        int id PK "AUTO_INCREMENT"
+        varchar(10) codigo UK "SP500 / NASDAQ / AMEX"
+        varchar(60) nombre
+    }
+
+    TICKER {
+        int id PK "AUTO_INCREMENT"
+        varchar(20) simbolo UK "formato Yahoo (BRK-B)"
+        varchar(255) nombre "nullable"
+        varchar(80) sector "solo en S&P 500"
+        varchar(120) subsector "solo en S&P 500"
+    }
+
+    TICKER_LISTA {
+        int ticker_id PK, FK
+        int lista_id PK, FK
+    }
+
+    PRECIO {
+        int ticker_id PK, FK
+        date fecha PK
+        decimal open "precision 18,6"
+        decimal high "precision 18,6"
+        decimal low "precision 18,6"
+        decimal close "precision 18,6"
+        decimal adj_close "precision 18,6"
+        bigint volumen
+    }
