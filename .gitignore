@@ -11,6 +11,9 @@ dist/
 .env.local
 *.pem
 
+# Config personal del asistente (skills locales)
+.agents/
+
 # Cachés y calidad de código
 .pytest_cache/
 .mypy_cache/
@@ -21,6 +24,9 @@ htmlcov/
 
 # Datos de mercado (grandes, regenerables con scripts/)
 data/
+
+# Modelos ML entrenados (regenerables con scripts/train_forecast.py)
+models/
 
 # Logs y SO
 *.log

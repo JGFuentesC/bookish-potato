@@ -10,6 +10,7 @@ echo "==> Creando base OLAP y usuarios de mínimo privilegio"
 
   CREATE USER IF NOT EXISTS 'etl'@'%' IDENTIFIED BY '${MYSQL_ETL_PASSWORD}';
   CREATE USER IF NOT EXISTS 'dashboards'@'%' IDENTIFIED BY '${MYSQL_DASHBOARDS_PASSWORD}';
+  CREATE USER IF NOT EXISTS '${MYSQL_TRAIN_USER:-train}'@'%' IDENTIFIED BY '${MYSQL_TRAIN_PASSWORD}';
 
   -- etl: gestiona los esquemas (DDL + carga) pero NO usuarios ni otros esquemas
   GRANT ALL PRIVILEGES ON finanzas.* TO 'etl'@'%';
@@ -19,7 +20,11 @@ echo "==> Creando base OLAP y usuarios de mínimo privilegio"
   GRANT SELECT ON finanzas.* TO 'dashboards'@'%';
   GRANT SELECT ON finanzas_olap.* TO 'dashboards'@'%';
 
+  -- train: solo lectura, usado por el entrenamiento ML
+  GRANT SELECT ON finanzas.* TO '${MYSQL_TRAIN_USER:-train}'@'%';
+  GRANT SELECT ON finanzas_olap.* TO '${MYSQL_TRAIN_USER:-train}'@'%';
+
   FLUSH PRIVILEGES;
 EOSQL
 
-echo "==> Usuarios 'etl' y 'dashboards' listos"
+echo "==> Usuarios 'etl', 'dashboards' y 'train' listos"

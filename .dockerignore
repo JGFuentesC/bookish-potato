@@ -1,0 +1,12 @@
+# Docker build (deploy/Dockerfile usa la raíz como contexto). Solo afecta
+# builds con contexto = raíz; los Dockerfiles de compose usan sus propios
+# contextos y dockerignores.
+.venv/
+data/
+docs/
+.git/
+.agents/
+__pycache__/
+*.py[cod]
+.env
+.DS_Store

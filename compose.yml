@@ -13,6 +13,8 @@ services:
       MYSQL_DATABASE: finanzas
       MYSQL_ETL_PASSWORD: ${MYSQL_ETL_PASSWORD}
       MYSQL_DASHBOARDS_PASSWORD: ${MYSQL_DASHBOARDS_PASSWORD}
+      MYSQL_TRAIN_USER: ${MYSQL_TRAIN_USER}
+      MYSQL_TRAIN_PASSWORD: ${MYSQL_TRAIN_PASSWORD}
       TZ: UTC
     ports:
       - "127.0.0.1:3306:3306"
@@ -67,6 +69,27 @@ services:
       - ./docker/superset/init:/docker/superset-init:ro
     command: ["bash", "/docker/superset-init/init.sh"]
     restart: "no"
+
+  forecast-api:
+    build: ./docker/forecast
+    image: finanzas-forecast
+    container_name: finanzas-forecast
+    environment:
+      MYSQL_HOST: ${MYSQL_HOST:-127.0.0.1}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_DASHBOARDS_USER: ${MYSQL_DASHBOARDS_USER}
+      MYSQL_DASHBOARDS_PASSWORD: ${MYSQL_DASHBOARDS_PASSWORD}
+      TZ: UTC
+    ports:
+      - "127.0.0.1:8090:8080"
+    volumes:
+      - ./models:/app/models:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 1g
+    pids_limit: 256
 
 volumes:
   mysql_data:

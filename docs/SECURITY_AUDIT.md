@@ -168,3 +168,46 @@ aplicarlas (y las MEDIUM recomendadas), el proyecto quedaría en estado "Securit
 
 **Veredicto revisado:** los hallazgos HIGH están remediados → **Security Clearance otorgado para uso dev/local**.
 Solo restan mejoras MEDIUM/LOW opcionales (TLS, escaneo Trivy periódico) para entornos compartidos.
+
+---
+
+## 10. Auditoría de la capa Forecast (forecast-api + front + ML) — aplicada el 2026-08-12
+
+Cobertura nueva: `docker/forecast/` (FastAPI + front vanilla JS), `docker/mysql/init/02_usuarios.sh`,
+`scripts/{features,build_features,train_forecast}.py`, `models/`. Se auditaron con la misma
+metodología (SAST manual, `uvx pip-audit`, regex de secretos, IA de contenedores y BD).
+
+### 10.1 Hallazgos y remediación
+
+| ID | Hallazgo | Ubicación | Severidad | Estado |
+|---|---|---|---|---|
+| **F-1** | **Fallbacks de contraseñas hardcodeadas** (`etl_dev_password`, `dash_dev_password`, `admin`). Si `.env` faltaba, se conectaba con credenciales conocidas. | `scripts/_config.py`, `docker/superset/init/init_database.py`, `scripts/provisionar_superset.py`, `docker/superset/init/init.sh` | **HIGH** | ✅ Fallbacks eliminados; ahora exigen la variable (error claro) o `:?` en shell. |
+| **F-2** | **CORS permisivo**: regex permitía cualquier origen/`*`-puerto de localhost, y sin `allow_credentials`. | `docker/forecast/app/main.py` | MEDIUM | ✅ Solo orígenes fijos `:8090`; añadidos headers `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`. |
+| **F-3** | **XSS potencial** en tooltip del gráfico vía `innerHTML` con datos de la API. | `docker/forecast/static/app.js` (`moverTooltip`) | MEDIUM | ✅ Reescrito con `textContent` + nodos DOM (`replaceChildren`). |
+| **F-4** | Usuario `train` (solo SELECT, usado por el entrenamiento ML) creado **manualmente**, no reproducible con `docker compose up`. | `docker/mysql/init/02_usuarios.sh` | MEDIUM | ✅ `CREATE USER 'train'@'%'` + grants SELECT añadidos al init (idempotente) y env pasada en `compose.yml`. |
+| **F-5** | `models/` (artefactos ML) no estaba en `.gitignore` → riesgo de commit de binarios. | `.gitignore` | LOW | ✅ `models/` ignorado. |
+| **F-6** | Inyección SQL en la API: revisado todos los `execute()` usan placeholders `%s` (parametrizados); `LIMIT` es un int (por defecto 50/200). `sim` se sanitiza con `.strip().upper()`. | `docker/forecast/app/main.py` | LOW (OK) | — |
+| **F-7** | `joblib.load()` sobre rutas resueltas desde `models/current.json` (objeto serializado). `_resolver_ruta` solo une contra el dir de modelos (sin traversal hacia el host); `./models` se monta `:ro`. Riesgo mitigado por montaje read-only. | `docker/forecast/app/modelos.py` | LOW | Documentado (ver 10.3). |
+| **F-8** | Dependencias del contenedor: rangos `>=` (no pin exacto). | `docker/forecast/requirements.txt` | LOW | SCA limpio (`uvx pip-audit`: 0 CVEs); se recomienda pin exacto si hay despliegue externo. |
+| **F-9** | Secreto `MYSQL_TRAIN_PASSWORD` viaja en línea de comandos de `train_forecast.py` (`--password`). Visible en `ps` de la sesión del host. | `scripts/train_forecast.py` | LOW | Documentado (aceptable en LVL académico; usar env var `MYSQL_TRAIN_PASSWORD` si se automatiza). |
+
+### 10.2 Verificación tras remediación
+
+- `py_compile` de los 4 módulos editados; `bash -n` de `02_usuarios.sh` e `init.sh` ✔.
+- `forecast-api` reconstruido (`docker compose up -d --build forecast-api`): `/api/v1/health` OK, `/forecast` OK.
+- Headers de seguridad verificados en la respuesta: `x-content-type-options: nosniff`, `x-frame-options: DENY`, `referrer-policy: no-referrer` ✔.
+- Front verificado en navegador: cambio de ticker (AAPL→TSLA) y tooltip renderizan con `textContent` ✔.
+- `cfg_db()` sin variables → error explícito; con `.env` → carga el valor real ✔.
+- `uvx pip-audit`: **0 vulnerabilidades conocidas** ✔.
+
+### 10.3 Notas residuales (no bloqueantes, entorno local)
+
+- **F-7**: `models/current.json` puede apuntar a rutas relativas dentro de `models/`; el montaje es `:ro` y
+  controllado por el operador. Si se publicara la API fuera de la LAN, restringir `current.json` a un
+  directorio fijo y validar extensiones antes de `joblib.load`.
+- **F-9**: para CI, preferir `MYSQL_TRAIN_PASSWORD` en entorno en vez de argumento.
+- **TLS**: conexiones MySQL siguen en texto plano dentro de la LAN (adecuado para este entorno); habilitar
+  `ssl` solo si se expone fuera de la red local.
+
+**Veredicto de capa Forecast:** hallazgos HIGH (F-1) remediados, MEDIUM (F-2..F-4) remediados,
+LOW documentados → **Security Clearance para uso dev/local.**
