@@ -3,9 +3,21 @@ import os
 from superset import db
 from superset.app import create_app
 
-DB_USER = os.environ.get("MYSQL_DASHBOARDS_USER", "dashboards")
-DB_HOST = os.environ.get("MYSQL_HOST", "mysql")
-DB_PASSWORD = os.environ.get("MYSQL_DASHBOARDS_PASSWORD", "dash_dev_password")
+
+def _obligar(nombre: str, valor: str | None) -> str:
+    if not valor:
+        raise RuntimeError(
+            f"Falta la credencial {nombre} en el entorno del contenedor. "
+            "No se usan contraseñas por defecto (seguridad)."
+        )
+    return valor
+
+
+DB_HOST = _obligar("MYSQL_HOST", os.environ.get("MYSQL_HOST"))
+DB_USER = _obligar("MYSQL_DASHBOARDS_USER", os.environ.get("MYSQL_DASHBOARDS_USER"))
+DB_PASSWORD = _obligar(
+    "MYSQL_DASHBOARDS_PASSWORD", os.environ.get("MYSQL_DASHBOARDS_PASSWORD")
+)
 
 CONNECTIONS = [
     {"name": "Finanzas OLAP", "db": "finanzas_olap"},

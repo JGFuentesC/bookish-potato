@@ -22,11 +22,12 @@ Cubre ~**6.200 tickers** (S&P 500, NASDAQ, AMEX) con **~5,2 millones** de filas 
 7. [Modelo OLTP](#modelo-oltp)
 8. [Modelo OLAP (snowflake)](#modelo-olap-snowflake)
 9. [Dashboards](#dashboards)
-10. [Referencia de scripts](#referencia-de-scripts)
-11. [Seguridad](#seguridad)
-12. [Reproducibilidad e idempotencia](#reproducibilidad-e-idempotencia)
-13. [Solución de problemas](#solución-de-problemas)
-14. [Consideraciones sobre los datos](#consideraciones-sobre-los-datos)
+10. [Forecast ML (entrenamiento y servido)](#forecast-ml-entrenamiento-y-servido)
+11. [Referencia de scripts](#referencia-de-scripts)
+12. [Seguridad](#seguridad)
+13. [Reproducibilidad e idempotencia](#reproducibilidad-e-idempotencia)
+14. [Solución de problemas](#solución-de-problemas)
+15. [Consideraciones sobre los datos](#consideraciones-sobre-los-datos)
 
 ---
 
@@ -95,13 +96,24 @@ flowchart LR
 │           ├── init.sh             # db upgrade, admin, permisos
 │           ├── init_database.py    # Registra conexiones MySQL (usuario dashboards)
 │           └── asociar_charts.py   # Asocia charts↔dashboards (relación slices)
+│   └── forecast/
+│       ├── Dockerfile              # FastAPI + xgboost==3.4.0 pinnado (forecast-api)
+│       ├── requirements.txt
+│       ├── app/
+│       │   ├── main.py             # Endpoints /api/v1/... + sirve el front en /
+│       │   └── modelos.py          # Carga de modelos .joblib y helpers
+│       └── static/                 # Front vanilla JS (index.html, app.js, styles.css)
 ├── scripts/
 │   ├── obtener_tickers.py          # Listas de tickers (SP500/NASDAQ/AMEX) → data/
 │   ├── descargar_precios.py        # Históricos diarios 5y desde Yahoo Finance (async)
 │   ├── etl_mysql.py                # ETL → OLTP (LOAD DATA paralelo)
 │   ├── etl_olap.py                 # ETL → OLAP snowflake (retornos, volatilidad)
+│   ├── build_features.py           # Construye feat_diaria en finanzas_olap (Polars)
+│   ├── train_forecast.py           # Entrena XGBoost Q10/Q50/Q90 + up/down (máquina de entrenamiento)
+│   ├── features.py                 # Feature engineering compartido (Polars)
 │   ├── provisionar_superset.py     # Datasets + 21 charts + 5 dashboards (REST API)
 │   └── _config.py                  # Carga .env y config de conexión (usuario etl)
+├── models/                         # Generada: .joblib del forecast + metadatos (NO versionada)
 ├── docs/                           # Diagramas mermaid/PNG, capturas de dashboards, auditoría
 └── data/                           # Generada: CSVs de tickers y precios (NO versionada)
 ```
@@ -257,6 +269,64 @@ charts a sus dashboards (`slices`) vía el modelo interno de Superset.
 
 ---
 
+## Forecast ML (entrenamiento y servido)
+
+**Servicio** `forecast-api`: dash de "Panorama de mercado" con proyección a 10 días y
+probabilidad de subir/bajar a 21 días por ticker, en **http://127.0.0.1:8090**.
+
+- **Front**: vanilla JS (sin dependencias) servido por la propia API en `/`.
+- **Modelos**: XGBoost regresores cuantílicos `q10/q50/q90` (multi-horizon directo con
+  covariable de horizonte `h`) + clasificador sube/baja calibrado isotónicamente.
+- **Datos**: tabla `feat_diaria` en `finanzas_olap` (~4,7 M filas, 5,5 K tickers, features
+  Polars: retornos, medias móviles, volatilidad, rango, calendario y contexto de mercado).
+- **Métricas holdout**: `acc = 0.66`, `AUC = 0.72`.
+
+### Retrain completo
+
+El flujo de retrain usa una **máquina de entrenamiento separada** (GPU opcional,
+acceso por red al MySQL vía usuario `train`, solo lectura) y el contenedor FastAPI como
+servidor. No hay duplicación de código: los scripts viven en `scripts/` y se copian al
+servidor, o se clonan allí desde git.
+
+```bash
+# 0) Preparar la máquina de entrenamiento (una vez)
+#    En la máquina de entrenamiento: clonar el repo y crear el entorno con las mismas deps
+#    (polars, xgboost==3.4.0, scikit-learn, joblib, pymysql). Ver pyproject.toml.
+#    Necesita acceso a la red del MySQL (bind LAN en compose.yml, ver MYSQL_HOST).
+
+# 1) Reconstruir features (en la máquina de entrenamiento, con acceso a MySQL)
+uv run python scripts/build_features.py --fuerza      # TRUNCATE + rebuild completo
+
+# 2) Entrenar (con las credenciales del usuario train del .env)
+uv run python scripts/train_forecast.py \
+  --user train --password "$MYSQL_TRAIN_PASSWORD" \
+  --host "$MYSQL_HOST" --dias 800 --max-tickers 2500 \
+  --salida ./models --version "v$(date +%Y%m%d%H%M)"
+#    → escribe forecast_q10/q50/q90.joblib, updown_clf.joblib, updown_iso.joblib,
+#      forecast_meta.json y current.json en ./models/
+
+# 3) Llevar los artefactos al host local
+scp <entrenador>:~/bookish-potato/models/*.joblib ./models/
+scp <entrenador>:~/bookish-potato/models/current.json ./models/
+
+# 4) Publicar
+docker compose up -d --build forecast-api     # reconstruye imagen + monta ./models
+open http://127.0.0.1:8090                    # el dash muestra "modelo: v<versión>"
+```
+
+**Solo `build_features` con upsert** (sin truncar) para incorporar días nuevos:
+`uv run python scripts/build_features.py`.
+
+La `forecast-api` también se puede levantar aislada:
+`docker compose up -d forecast-api` (ya está incluida en el `docker compose up -d` global;
+monta `./models` en solo lectura y conecta a MySQL con el usuario `dashboards`).
+
+> **Lección**: la versión de `xgboost` en el contenedor debe ser idéntica a la del
+> entrenamiento (`xgboost==3.4.0`), o las predicciones salen invertidas/absurdas.
+> Detalle del pipeline y métricas en `docs/PLAN_ML.md`.
+
+---
+
 ## Referencia de scripts
 
 | Script | Uso | Idempotente |
@@ -265,6 +335,8 @@ charts a sus dashboards (`slices`) vía el modelo interno de Superset.
 | `scripts/descargar_precios.py` | Descargar precios 5y (async, resumible) | Sí |
 | `scripts/etl_mysql.py` | Reconstruir el OLTP | Sí (drop + recreate) |
 | `scripts/etl_olap.py` | Reconstruir el OLAP snowflake | Sí (drop + recreate) |
+| `scripts/build_features.py` | Construir `feat_diaria` (features + contexto mercado) | Sí (`--fuerza` para TRUNCATE) |
+| `scripts/train_forecast.py` | Entrenar modelos XGBoost + calibrar | No (sobreescribe `models/`) |
 | `scripts/provisionar_superset.py` | Datasets + charts + dashboards en Superset | Sí (borra y recrea los `OV/PF/VL/LQ/ES` y dashboards `finanzas-*`) |
 
 ---
@@ -277,6 +349,7 @@ Auditoría completa en `docs/SECURITY_AUDIT.md`. Resumen de lo aplicado:
 - **Mínimo privilegio** en MySQL (creados por `docker/mysql/init/02_usuarios.sh`):
   - `etl` → gestión (DDL + carga) solo de `finanzas` y `finanzas_olap`.
   - `dashboards` → **solo SELECT** (usado por Superset; verificado: `INSERT` denegado).
+  - `train` → **solo SELECT** para el entrenamiento ML.
 - **Puertos enlazados a `127.0.0.1`** (MySQL `3306` y Superset `8088`).
 - `SUPERSET_SECRET_KEY` desde entorno; dependencias del image **pinnadas**.
 - Límites de memoria/processos en los contenedores.

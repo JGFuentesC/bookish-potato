@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Forecast · Panorama de Mercado</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-header-inner">
+      <div class="marca">
+        <h1 class="marca-titulo">Forecast</h1>
+        <p class="marca-sub">Panorama de mercado · proyección a 1 mes</p>
+      </div>
+      <span class="badge-modelo" id="badge-modelo" hidden></span>
+    </div>
+  </header>
+
+  <main class="contenido">
+    <section class="barra-filtros" aria-label="Filtros">
+      <div class="campo campo-ticker">
+        <label class="campo-etiqueta" for="input-ticker">Ticker</label>
+        <input
+          type="text"
+          id="input-ticker"
+          list="lista-tickers"
+          class="entrada"
+          placeholder="Buscar por símbolo o nombre…"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+        >
+        <datalist id="lista-tickers"></datalist>
+      </div>
+
+      <div class="campo campo-listas">
+        <span class="campo-etiqueta">Lista</span>
+        <div class="chips" id="grupo-chips">
+          <button type="button" class="chip" data-lista="SP500">SP500</button>
+          <button type="button" class="chip" data-lista="NASDAQ">NASDAQ</button>
+          <button type="button" class="chip" data-lista="AMEX">AMEX</button>
+        </div>
+      </div>
+
+      <div class="campo">
+        <label class="campo-etiqueta" for="select-sector">Sector</label>
+        <select id="select-sector" class="entrada">
+          <option value="">Todos los sectores</option>
+        </select>
+      </div>
+
+      <div class="campo campo-rango">
+        <label class="campo-etiqueta" for="desde">Desde</label>
+        <input type="date" id="desde" class="entrada">
+      </div>
+      <div class="campo campo-rango">
+        <label class="campo-etiqueta" for="hasta">Hasta</label>
+        <input type="date" id="hasta" class="entrada">
+      </div>
+    </section>
+
+    <div class="banner-error" id="banner-error" role="alert" hidden></div>
+
+    <section class="grid-principal">
+      <article class="tarjeta tarjeta-grafico">
+        <header class="tarjeta-cabecera">
+          <div>
+            <h2 class="tarjeta-titulo" id="titulo-ticker">Cargando…</h2>
+            <p class="tarjeta-sub" id="subtitulo-ticker">Iniciando sesión de mercado</p>
+          </div>
+          <div class="estado-carga" id="estado-carga" hidden>
+            <span class="spinner" aria-hidden="true"></span>
+            <span id="estado-carga-texto">Actualizando</span>
+          </div>
+        </header>
+        <div class="grafico" id="grafico">
+          <svg id="grafico-svg" role="img" aria-label="Gráfico de precios y forecast"></svg>
+          <div class="tooltip" id="tooltip" hidden></div>
+          <div class="placeholder" id="placeholder-grafico">
+            <span class="spinner spinner-grande" aria-hidden="true"></span>
+            <p>Descargando precios y forecast…</p>
+          </div>
+        </div>
+      </article>
+
+      <aside class="tarjeta tarjeta-prob">
+        <header class="tarjeta-cabecera">
+          <div>
+            <h2 class="tarjeta-titulo">Volatilidad esperada a 1 mes</h2>
+            <p class="tarjeta-sub" id="prob-simbolo">—</p>
+          </div>
+        </header>
+
+        <div id="prob-contenido">
+          <div class="prob-barra" aria-hidden="true">
+            <div class="prob-seg prob-fuerte" id="barra-fuerte" style="width:0%"></div>
+            <div class="prob-seg prob-calma" id="barra-calma" style="width:0%"></div>
+          </div>
+          <div class="prob-leyenda">
+            <span class="prob-item prob-item-fuerte"><i class="punto"></i>Movimiento fuerte <b id="prob-fuerte">--</b></span>
+            <span class="prob-item prob-item-calma"><i class="punto"></i>Calma <b id="prob-calma">--</b></span>
+          </div>
+          <div class="nota-modelo" id="nota-modelo" hidden></div>
+        </div>
+
+        <dl class="datos-clave" id="datos-clave">
+          <div class="dato">
+            <dt>Precio actual</dt>
+            <dd id="dato-precio" class="num">--</dd>
+          </div>
+          <div class="dato">
+            <dt>Fecha as of</dt>
+            <dd id="dato-fecha" class="num">--</dd>
+          </div>
+          <div class="dato">
+            <dt>Modelo</dt>
+            <dd id="dato-modelo" class="num">--</dd>
+          </div>
+        </dl>
+      </aside>
+    </section>
+
+    <footer class="pie">
+      <p>Datos de historia y forecast servidos por la API local. Las proyecciones son indicativas.</p>
+    </footer>
+  </main>
+
+  <script>window.__API_TOKEN__ = "__API_TOKEN_VAL__";</script>
+  <script src="./app.js"></script>
+</body>
+</html>

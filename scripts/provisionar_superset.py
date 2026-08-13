@@ -15,9 +15,19 @@ from _config import cargar_env
 
 cargar_env()
 
-BASE = os.environ.get("SUPERSET_URL", "http://localhost:8088")
-USER = os.environ.get("SUPERSET_ADMIN_USER", "admin")
-PASS = os.environ.get("SUPERSET_ADMIN_PASSWORD", "admin")
+base = os.environ.get("SUPERSET_URL", "http://localhost:8088")
+
+def _obligar(nombre: str, valor: str | None) -> str:
+    if not valor:
+        raise RuntimeError(
+            f"Falta la credencial {nombre} en el entorno. "
+            "No se usan contraseñas por defecto (seguridad)."
+        )
+    return valor
+
+BASE = base
+USER = _obligar("SUPERSET_ADMIN_USER", os.environ.get("SUPERSET_ADMIN_USER"))
+PASS = _obligar("SUPERSET_ADMIN_PASSWORD", os.environ.get("SUPERSET_ADMIN_PASSWORD"))
 
 DS_EMPRESA = "vw_empresa"
 DS_MEMBRESIA = "vw_membresia"
