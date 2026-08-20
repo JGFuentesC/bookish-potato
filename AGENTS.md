@@ -37,10 +37,12 @@ Al llegar a E6-H1 (dirección de diseño y mockups), antes de escribir component
 6. Con VoBo: auditoría cyber-sec (skill en `.agents/skills/cyber-sec/SKILL.md`) → remediar hallazgos → reporte en `docs/evidence/<incremento>/SECURITY-AUDIT.md`.
 7. **Actualizar `HEARTBEAT.md`** con lo hecho y lo que sigue.
 8. Commit (conventional commits, descripción en español, estilo del historial: `chore: initial commit...`).
+9. **Verificación post-commit**: `git status --porcelain` debe quedar vacío. Si queda algún archivo `M`/`??` sin commitear, el commit está mal: corregirlo antes de continuar.
 
 ## Reglas duras
 
 - **Prohibido el comando `sleep`** en cualquier contexto. Para esperar: `--wait`, timeouts propios de la herramienta, polling condicional sin sleep, o seguir con otra tarea.
+- **`git add` explícito y verificado**: nunca silenciar errores de `git add` (`2>/dev/null`). Stagear cada archivo/ruta por su nombre real y comprobar `git status --porcelain` antes de commitear para confirmar que todo lo esperado está en el index y nada quedó fuera.
 - **HEARTBEAT.md**: se lee antes de desarrollar y se actualiza antes de cada commit. Sin excepción.
 - **Comunicación mínima**: reportes al grano, sin preámbulos ni postales. Reportar: qué se hizo, verificación, resultado. 
 - No commit sin VoBo + cybersec + HEARTBEAT actualizado.
