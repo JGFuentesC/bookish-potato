@@ -44,8 +44,8 @@ Las versiones marcadas con `(lock)` están ya resueltas y congeladas en un archi
 | Componente | Elección | Versión fijada | Registro verificado |
 |---|---|---|---|
 | Servidor de modelos | Ollama | 0.32.14 | GitHub `ollama/ollama` release `v0.32.14` |
-| LLM (Gemma Q4 ≤ 8 GB VRAM) | — | Ver ADR-002 (se decide en E0-H3) | pendiente de medición en platypy |
-| Embeddings | gemma-embedding o equivalente | Ver ADR-002 (se decide en E0-H3) | pendiente de medición en platypy |
+| LLM (Gemma Q4 ≤ 8 GB VRAM) | `gemma4:latest` (8B Q4_K_M) | ADR-002 | medido en platypy (3.25 GB VRAM, TTFT med. 0.48 s) |
+| Embeddings | `embeddinggemma` (dim 768) | ADR-002 | medido en platypy (0.175 s/ítem, coexiste con LLM) |
 | Framework de agente | Google ADK (Python) | 2.7.1 | PyPI `google-adk` |
 | API del sidecar | FastAPI | 0.141.1 `(lock)` | `uv.lock` ai-sidecar |
 | Contratos | Pydantic v2 | 2.13.4 `(lock)` | `uv.lock` ai-sidecar |
@@ -108,7 +108,7 @@ Las versiones marcadas con `(lock)` están ya resueltas y congeladas en un archi
 ## Consecuencias
 
 - **Positivas**: reproducibilidad (RNF-16) sin asumir versiones; los lockfiles versionados (`uv.lock`, `pnpm-lock.yaml`) y el `go.mod` son la prueba de resolución; cualquier actualización de versión exige un nuevo ADR/commit con evidencia.
-- **Neutras**: el LLM y los embeddings quedan deliberadamente abiertos en este ADR porque su decisión requiere medición sobre VRAM real (ADR-002, E0-H3). Hasta entonces ningún componente depende de la variante.
+- **Neutras**: el LLM y los embeddings se decidieron en ADR-002 (E0-H3) mediante medición sobre VRAM real de platypy: LLM `gemma4:latest`, embeddings `embeddinggemma`.
 - **Negativas / riesgos**: Recharts 3.10.1 exige componentes shadcn/ui charts actualizados a la versión con soporte Recharts v3 (PR #8486); go-duckdb debe mantenerse alineado con la versión de DuckDB del lado Python (ambos 1.5.5). Docker local 29.6.2 supera el mínimo RNF-15 (24 o superior), por lo que el compose no debe usar sintaxis exclusiva de versiones posteriores.
 
 ## Verificación

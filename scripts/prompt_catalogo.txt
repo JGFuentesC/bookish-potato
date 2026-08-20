@@ -1,0 +1,54 @@
+Catálogo semántico de entidades disponibles para consultas de fútbol:
+
+1. competition: La Liga (España)
+2. competition: Premier League (Inglaterra)
+3. competition: Serie A (Italia)
+4. competition: Bundesliga (Alemania)
+5. competition: Ligue 1 (Francia)
+6. competition: Champions League (Europa)
+7. season: 2021/22 (cada competición)
+8. season: 2022/23 (cada competición)
+9. team: FC Barcelona
+10. team: Real Madrid
+11. team: Manchester City
+12. team: Liverpool
+13. team: Arsenal
+14. team: Chelsea
+15. team: Bayern Munich
+16. team: Paris Saint-Germain
+17. team: Juventus
+18. team: Inter de Milán
+19. team: Atlético de Madrid
+20. team: Sevilla
+21. team: Athletic Club
+22. team: Real Betis
+23. team: Real Sociedad
+24. player: Lionel Messi
+25. player: Cristiano Ronaldo
+26. player: Kylian Mbappé
+27. player: Erling Haaland
+28. player: Robert Lewandowski
+29. player: Vinícius Júnior
+30. player: Kevin De Bruyne
+31. player: Mohamed Salah
+32. player: Karim Benzema
+33. player: Luka Modrić
+34. player: Pedri
+35. player: Gavi
+36. event_type: shot (tiro)
+37. event_type: pass (pase)
+38. event_type: goal (gol)
+39. event_type: foul_committed (falta cometida)
+40. event_type: card (tarjeta)
+41. event_type: substitution (sustitución)
+42. position: goalkeeper (portero)
+43. position: defender (defensa)
+44. position: midfielder (centrocampista)
+45. position: forward (delantero)
+46. stat: expected_goals (goles esperados)
+47. stat: assists (asistencias)
+48. stat: touches (toques)
+49. entity: match (partido)
+50. entity: venue (estadio)
+
+Pregunta: ¿Cuántos goles marcó el FC Barcelona en la temporada 2021/22 de La Liga y cuántos tiros a puerta realizó Lionel Messi ese año?

@@ -1,0 +1,79 @@
+{
+  "bench": "E0-H3",
+  "model": "gemma4:e2b-it-q4_K_M",
+  "ollama_version": "0.30.10",
+  "num_ctx": 8192,
+  "max_tokens": 512,
+  "runs": 5,
+  "seed": 42,
+  "prompt_tokens": 578,
+  "prompt_fits_in_window": true,
+  "ttft_s": {
+    "min": 0.4049,
+    "median": 0.4249,
+    "max": 0.5315
+  },
+  "tokens_per_s": {
+    "min": 108.368,
+    "median": 109.2081,
+    "max": 110.3762
+  },
+  "vram": {
+    "name": "gemma4:e2b-it-q4_K_M",
+    "size": 1644230082,
+    "size_vram": 1644230082,
+    "context_length": 8192,
+    "processor": null,
+    "family": "gemma4",
+    "parameter_size": "5.1B",
+    "quantization": "Q4_K_M"
+  },
+  "fully_in_vram": true,
+  "evidences": [
+    {
+      "ttft_s": 0.5315,
+      "total_s": 4.767,
+      "eval_count": 471,
+      "prompt_eval_count": 578,
+      "eval_duration_ns": 4267225999,
+      "prompt_eval_duration_ns": 135709000,
+      "done_reason": "stop"
+    },
+    {
+      "ttft_s": 0.4049,
+      "total_s": 5.0556,
+      "eval_count": 512,
+      "prompt_eval_count": 578,
+      "eval_duration_ns": 4678133000,
+      "prompt_eval_duration_ns": 11423000,
+      "done_reason": "length"
+    },
+    {
+      "ttft_s": 0.4353,
+      "total_s": 4.4901,
+      "eval_count": 446,
+      "prompt_eval_count": 578,
+      "eval_duration_ns": 4083947000,
+      "prompt_eval_duration_ns": 21573000,
+      "done_reason": "stop"
+    },
+    {
+      "ttft_s": 0.4095,
+      "total_s": 5.0825,
+      "eval_count": 512,
+      "prompt_eval_count": 578,
+      "eval_duration_ns": 4700598000,
+      "prompt_eval_duration_ns": 12166000,
+      "done_reason": "length"
+    },
+    {
+      "ttft_s": 0.4249,
+      "total_s": 4.5108,
+      "eval_count": 446,
+      "prompt_eval_count": 578,
+      "eval_duration_ns": 4115604999,
+      "prompt_eval_duration_ns": 21650000,
+      "done_reason": "stop"
+    }
+  ]
+}

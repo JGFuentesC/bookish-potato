@@ -32,7 +32,8 @@ Puertos publicados: app `http://localhost:8081`, sidecar `http://localhost:8000/
 
 Ollama corre **fuera** de este stack en una máquina remota (platypy) y debe ser alcanzable por red. La URL se
 configura en `OLLAMA_BASE_URL` (`.envrc.local`). El sidecar la usa para el agente; ningún contenedor del stack
-levanta su propio modelo.
+levanta su propio modelo. Modelos fijados en ADR-002 (E0-H3): LLM `gemma4:latest` y embeddings `embeddinggemma`
+(variables `OLLAMA_LLM_MODEL` y `OLLAMA_EMBEDDINGS_MODEL`, ver `.env.example`).
 
 ## Datos
 
