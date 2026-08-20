@@ -1,0 +1,83 @@
+name: genbi
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.6-pg17
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER no definida: ejecuta direnv allow o revisa .envrc.local}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD no definida: ejecuta direnv allow o revisa .envrc.local}"
+      POSTGRES_DB: "${POSTGRES_DB:?POSTGRES_DB no definida: ejecuta direnv allow o revisa .envrc.local}"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ai-sidecar:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.sidecar
+    image: genbi-ai-sidecar:latest
+    environment:
+      PORT: "8000"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:?OLLAMA_BASE_URL no definida: revisa .envrc.local}"
+      LAKEHOUSE_PATH: /lakehouse
+      QUERY_TIMEOUT_MS: ${QUERY_TIMEOUT_MS:-30000}
+      MAX_ROWS: ${MAX_ROWS:-1000}
+    volumes:
+      - lakehouse:/lakehouse:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.app
+    image: genbi-app:latest
+    environment:
+      PORT: "8080"
+      LAKEHOUSE_PATH: /lakehouse
+      SIDECAR_URL: "${SIDECAR_URL:?SIDECAR_URL no definida: revisa .envrc.local}"
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+      QUERY_TIMEOUT_MS: ${QUERY_TIMEOUT_MS:-30000}
+      MAX_ROWS: ${MAX_ROWS:-1000}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - lakehouse:/lakehouse:ro
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-sidecar:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/server", "-healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
+  lakehouse:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ../lakehouse

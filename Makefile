@@ -68,8 +68,8 @@ silver: ## Construye capa silver (E2)
 gold: ## Construye capa gold (E2)
 	$(call STUB,gold)
 
-serve: ## Sirve la app (E0-H2/E5)
-	$(call STUB,serve)
+serve: ## Sirve la app (E0-H2): construye, levanta y espera healthchecks
+	$(COMPOSE) up -d --build --wait
 
 eval: ## Ejecuta el arnes de evaluacion del agente (E3)
 	$(call STUB,eval)
@@ -100,17 +100,19 @@ ingest-360: ## Ingesta de datos 360 (E1)
 
 # ---- Compose (E0-H2) ----
 
+COMPOSE := docker compose -f infra/docker-compose.yml
+
 up: ## Levanta contenedores (E0-H2)
-	$(call STUB,up)
+	$(COMPOSE) up -d --build
 
 down: ## Mata contenedores (E0-H2)
-	$(call STUB,down)
+	$(COMPOSE) down
 
 restart: ## Reinicia contenedores (E0-H2)
-	$(call STUB,restart)
+	$(COMPOSE) restart
 
-logs: ## Logs de contenedores (E0-H2)
-	$(call STUB,logs)
+logs: ## Logs de contenedores (E0-H2, uso: make logs SERVICE=app)
+	$(COMPOSE) logs -f $(SERVICE)
 
 ps: ## Estado de contenedores (E0-H2)
-	$(call STUB,ps)
+	$(COMPOSE) ps

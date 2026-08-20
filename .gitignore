@@ -9,6 +9,7 @@ dist/
 # Entornos / secretos
 .env
 .env.local
+.envrc.local
 *.pem
 
 
@@ -36,6 +37,11 @@ node_modules/
 
 # Binarios compilados
 backend/server
+
+# dist embebida en el server Go (placeholder versionado, contenido llega del build Vite)
+backend/cmd/server/dist/*
+!backend/cmd/server/dist/
+!backend/cmd/server/dist/.gitkeep
 
 # Logs y SO
 *.log
