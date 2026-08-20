@@ -27,6 +27,13 @@ data/
 # Modelos ML entrenados (regenerables con scripts/train_forecast.py)
 models/
 
+# Lakehouse y motores embebidos
+lakehouse/
+*.duckdb
+
+# Frontend / Node
+node_modules/
+
 # Logs y SO
 *.log
 .DS_Store
