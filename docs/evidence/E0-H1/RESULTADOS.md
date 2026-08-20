@@ -16,7 +16,7 @@ T2.1 — los tres `SKILL.md` existen bajo `.claude/skills/` (symlinks → `.agen
 
 ---
 
-## E0-H1-T3 — Inicialización de módulos ⏳ (pendiente VoBo)
+## E0-H1-T3 — Inicialización de módulos ✅ (commit afe4084)
 
 ### T3.1 — Go
 
@@ -62,7 +62,7 @@ git check-ignore data-platform/.venv frontend/dist → ignorados          ✓
 
 ---
 
-## E0-H1-T4 — Makefile raíz ⏳ (pendiente VoBo)
+## E0-H1-T4 — Makefile raíz ✅ (commit ad3569f)
 
 ### T4.1 — Metas requeridas
 
@@ -93,10 +93,50 @@ Notas:
 - oxlint advertía `react(only-export-components)` por exportar `buttonVariants` desde `button.tsx` (patrón shadcn estándar); se desactiva esa regla en `frontend/.oxlintrc.json` para cumplir DoD-G (linter sin warnings). Exit code era 0 igualmente.
 - `make fmt` aplica `go fmt`, `ruff format` (sin formateador de frontend configurado en E0).
 
+---
+
+## E0-H1-T5 — ADR-001 con versiones exactas del stack ⏳ (pendiente VoBo)
+
+### Qué se probó
+
+1. `docs/adr/ADR-001-stack-versions.md` creado con la sección 10 del PRD cerrada a versiones exactas verificadas contra registros oficiales (PyPI, npm, Go proxy, Docker Hub, GitHub releases) con fecha 2026-08-19.
+2. Verificación de la subtarea T5.1: ninguna celda del ADR dice "≥" ni "por definir".
+
+### Registro oficial por componente (fuentes consultadas)
+
+| Componente | Versión fijada | Fuente |
+|---|---|---|
+| PostgreSQL | 17.11 | Docker Hub `library/postgres` |
+| pgvector | 0.8.6 | GitHub `pgvector/pgvector` tags |
+| Imagen Postgres+pgvector | `0.8.6-pg17` | Docker Hub `pgvector/pgvector` tags |
+| golang-migrate | 4.19.1 | GitHub `golang-migrate/migrate` releases |
+| Python 3.12 | 3.12.14 | Docker Hub `library/python` tags |
+| uv | 0.11.6 | `uv --version` local |
+| Ollama | 0.32.14 | GitHub `ollama/ollama` releases |
+| Google ADK (Python) | 2.7.1 | PyPI `google-adk` |
+| Recharts | 3.10.1 | npm `recharts` (soporte v3 confirmado en shadcn/ui PR #8486) |
+| Go | 1.26.5 | `go.mod` / `go version` |
+| Docker | 29.6.2 | `docker --version` |
+| Docker Compose | v5.3.1 | `docker compose version` |
+
+### Versiones verificadas desde lockfiles (`grep` sobre `uv.lock` / `pnpm-lock.yaml`)
+
+- data-platform: duckdb 1.5.5, polars 1.43.2, pyarrow 25.0.1, psycopg 3.3.4, pydantic 2.13.4.
+- ai-sidecar: fastapi 0.141.1, httpx 0.28.1, pydantic 2.13.4, uvicorn 0.52.4, sqlglot 30.17.0, pyyaml 6.0.3, duckdb 1.5.5.
+- frontend: react 19.2.8, react-dom 19.2.8, typescript 6.0.3, vite 8.2.1, @vitejs/plugin-react 6.0.5, tailwindcss 4.3.3, @tailwindcss/vite 4.3.3, shadcn 4.18.0, @base-ui/react 1.7.0, oxlint 1.79.0, lucide-react 1.32.0.
+- Go deps (Go proxy): chi v5.3.1, pgx v5.10.0, go-duckdb v1.5.5 (motor DuckDB 1.5.5, coherente con Python), koanf v2.3.6, testify v1.12.1, testcontainers-go v0.44.0, otel v1.45.0.
+
+### Verificación de la subtarea T5.1
+
+```
+$ rg -n "≥|por definir" docs/adr/ADR-001-stack-versions.md
+CLEAN: sin ≥ ni 'por definir'
+```
+
+Exit code: 0 (patrón no encontrado). Todas las celdas de "Versión fijada" contienen un valor exacto.
+
 ## Estado general
 
-- [x] E0-H1-T4.1 — `make -n <meta>` no falla en ninguna de las metas del PRD
-- [x] E0-H1-T4.2 — `make verify` encadena lint+test de los cuatro módulos con código de salida 0
 - [x] E0-H1-T1.1 — árbol de directorios creado y versionado
 - [x] E0-H1-T1.2 — `.gitignore` cubre `data/`, `lakehouse/`, `node_modules/`, `.venv/`, `dist/`, `*.duckdb`
 - [x] E0-H1-T2.1 — tres `SKILL.md` bajo `.claude/skills/`
@@ -104,4 +144,7 @@ Notas:
 - [x] E0-H1-T3.1 — `go build ./...` compila
 - [x] E0-H1-T3.2 — `uv sync` genera `uv.lock` en data-platform y ai-sidecar (Python 3.12)
 - [x] E0-H1-T3.3 — `pnpm build` produce `dist/`
+- [x] E0-H1-T4.1 — `make -n <meta>` no falla en ninguna de las metas del PRD
+- [x] E0-H1-T4.2 — `make verify` encadena lint+test de los cuatro módulos con código de salida 0
+- [x] E0-H1-T5.1 — ADR-001 sin "≥" ni "por definir" (todas las celdas con versión exacta verificada)
 - [x] `.gitignore` raíz ignora `backend/server` (binario)

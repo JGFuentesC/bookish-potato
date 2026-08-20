@@ -1,84 +1,52 @@
-# SECURITY-AUDIT — E0-H1-T3 (inicialización de módulos)
+# SECURITY-AUDIT — E0-H1-T5 (ADR-001 + evidencia)
 
-Skill: `.agents/skills/cyber-sec/SKILL.md` (aplicada). Incremento: toolchains de los cuatro módulos (Go, Python/uv, frontend Vite). Sin lógica de negocio todavía; los archivos son esqueletos de configuración y un `main.go` placeholder.
-
-## Superficie auditada
-
-| Categoría | Alcance | Resultado |
-|---|---|---|
-| Secretos / hardcoding | Todos los archivos del incremento | Sin secretos |
-| IaC | No hay `.tf` | No aplica |
-| SCA | `go.mod` (sin deps), `uv.lock` (dev+run conocidas), `pnpm-lock.yaml` | Sin CVEs conocidos en el árbol (solo dev/UI de arranque) |
-| SAST | `main.go` (imprime constante) | Sin riesgo |
-| XSS | Sin renderizado propio (plantilla Vite) | No aplica |
-
-## Escaneo de secretos
-
-`rg` sobre el diff del incremento (go.mod, pyproject, package.json, vite.config, main.go): 0 coincidencias. No hay variables de entorno ni credenciales.
-
-## Dependencias notables (registro para futuras auditorías SCA)
-
-- `pnpm-lock.yaml` incluye `@tailwindcss/vite`, `react@19.2.8`, `vite@8.2.1`, `typescript@6.0.3` — resolvidas a las últimas en el registro npm en el momento de instalar.
-- `uv.lock` (ambos módulos): pytest, ruff, mypy, duckdb, polars, pyarrow, psycopg, fastapi, uvicorn, httpx, sqlglot.
-- Ninguna dependencia marcada como vulnerable por los resolvers al instalar.
+| Campo | Valor |
+|---|---|
+| Fecha | 2026-08-19 |
+| Auditor | cyber-sec (skill `.agents/skills/cyber-sec/SKILL.md`) |
+| Incremento | E0-H1-T5 — `docs/adr/ADR-001-stack-versions.md`, `docs/evidence/E0-H1/RESULTADOS.md`, `AGENTS.md` (regla dura de raíz del repo) |
+| Tipo de cambio | Documental (Markdown) — sin código Go/Python/TS/React modificado |
 
 ## Matriz de severidad
 
-| Severidad | Hallazgos | Estado |
+| Severidad | Cantidad | Estado |
 |---|---|---|
 | CRITICAL | 0 | — |
 | HIGH | 0 | — |
 | MEDIUM | 0 | — |
 | LOW | 0 | — |
+| INFO | 2 | Sin acción requerida (detalle abajo) |
 
-## Remediación sugerida
+## Qué se chequeó
 
-- Ejecutar `uv pip audit` / `pnpm audit` en el cierre de E0-H1 (cuando exista el Makefile con la meta de auditoría) como línea base periódica.
+### 1. Secretos y hardcoding (SAST — barrido de patrones)
+
+`git ls-files | xargs grep -lE 'sk_live|sk_test|ghp_|gho_|ghu_|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z\-_]{35}|sk-ant-|xox[baprs]-|BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY'`
+
+- Resultado: **sin coincidencias** (exit 1). El incremento no introduce secretos ni credenciales. No hay `.env` versionado; se usa `.env.example` por política.
+
+### 2. Dependencias (SCA) — por módulo, sobre el venv/lock del módulo
+
+| Módulo | Comando | Resultado |
+|---|---|---|
+| `data-platform` | `uv audit` (en `data-platform/`) | 24 paquetes, sin vulnerabilidades conocidas |
+| `ai-sidecar` | `uv audit` (en `ai-sidecar/`) | 31 paquetes, sin vulnerabilidades conocidas |
+| `frontend` | `pnpm audit` (en `frontend/`) | Sin vulnerabilidades conocidas |
+
+- Nota de proceso: en una corrida previa el comando se ejecutó encadenando `cd` entre módulos y `uv pip audit` (subcomando inexistente en uv 0.11.6). Se reejecutó correctamente por módulo con `workdir` y `uv audit`. Para evitar recurrencia se añadió a `AGENTS.md` la regla dura que prohíbe salir de la raíz del repositorio y exige auditorías con `workdir=<módulo>` sobre el venv/lock propio. (INFO)
+
+### 3. Análisis estático (SAST) en código
+
+- **N/A**: el incremento no modifica código ejecutable (solo Markdown). No hay superficie de inyección SQL, XSS ni comandos. Los componentes auditables (Go, Python, React) llegan en E1+.
+
+### 4. Rutas de máquina y valores de máquina
+
+- El ADR fija versiones verificadas de registros oficiales; no contiene rutas absolutas de máquina ni secretos. La única ruta absoluta es la de la raíz del repositorio en `AGENTS.md` (regla de proceso, no secreto). (INFO)
+
+## Hallazgos
+
+No hay hallazgos de severidad CRITICAL/HIGH/MEDIUM/LOW. Nada bloquea el commit.
 
 ## Veredicto
 
-**Security Clearance otorgado.** Sin hallazgos. Bloqueo de commit no aplica.
-
----
-
-# SECURITY-AUDIT — E0-H1-T4 (Makefile raíz)
-
-Incremento: `Makefile` raíz, smoke tests `test_smoke.py` (data-platform y ai-sidecar), script `test` en `frontend/package.json`, `frontend/.oxlintrc.json`, newline en `main.go`.
-
-## Superficie auditada
-
-| Categoría | Alcance | Resultado |
-|---|---|---|
-| Secretos / hardcoding | Diff completo del incremento | Sin patrones de secretos |
-| IaC | Sin `.tf`/compose todavía (E0-H2) | No aplica |
-| SCA | `uv audit` (data-platform 24 pkgs, ai-sidecar 31 pkgs), `pnpm audit --audit-level=high`, `go.mod` (sin deps) | Sin vulnerabilidades |
-| SAST | `main.go` (placeholder), smoke tests (aserciones triviales) | Sin riesgo |
-| XSS | Sin renderizado dinámico (plantilla Vite) | No aplica |
-
-## Comandos ejecutados
-
-```
-git diff HEAD | grep -iE '(api_key|secret|password|token|PRIVATE)'   → 0 coincidencias
-uv audit            (data-platform) → no vulnerabilities (24 pkgs)  EXIT=0
-uv audit            (ai-sidecar)    → no vulnerabilities (31 pkgs)  EXIT=0
-pnpm audit --audit-level=high       → no known vulnerabilities      EXIT=0
-```
-
-Nota: `uv pip audit` no existe en uv 0.11.6; el subcomando equivalente es `uv audit` (experimental).
-
-## Matriz de severidad
-
-| Severidad | Hallazgos | Estado |
-|---|---|---|
-| CRITICAL | 0 | — |
-| HIGH | 0 | — |
-| MEDIUM | 0 | — |
-| LOW | 0 | — |
-
-## Remediación sugerida
-
-- Línea base periódica de SCA con `uv audit` en ambos módulos Python y `pnpm audit` en frontend (se sugiere agregar meta de auditoría al Makefile en una épica futura; el PRD no la exige en E0-H1-T4).
-
-## Veredicto
-
-**Security Clearance otorgado.** Sin hallazgos. Bloqueo de commit no aplica.
+**Security Clearance otorgado.** Commit habilitado para E0-H1-T5.
