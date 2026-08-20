@@ -62,8 +62,41 @@ git check-ignore data-platform/.venv frontend/dist → ignorados          ✓
 
 ---
 
+## E0-H1-T4 — Makefile raíz ⏳ (pendiente VoBo)
+
+### T4.1 — Metas requeridas
+
+Metas del PRD: `bootstrap`, `verify`, `lint`, `test`, `fmt`, `data-pull`, `ingest`, `bronze`, `silver`, `gold`, `serve`, `eval`, `demo`, `clean`. Extras de AGENTS.md: `report`, `lineage`, `model`, `migrate-up`, `migrate-down`, `ingest-report`, `ingest-360`, `up`, `down`, `restart`, `logs`, `ps`, `help`.
+
+```
+for t in bootstrap verify lint test fmt clean data-pull ingest bronze silver gold serve eval demo report lineage model migrate-up migrate-down ingest-report ingest-360 up down restart logs ps help
+do make -n "$t" || exit 1; done
+→ OK: make -n en todas las metas (ninguna falla)
+```
+
+Pipeline, eval, serve y compose son stubs que fallan con mensaje claro y `exit 1` (se implementan en E0-H2/E1/E2/E3/E7). `verify` encadena lint+test de los cuatro módulos.
+
+### T4.2 — make verify
+
+```
+make verify → EXIT=0
+```
+
+- backend: `go vet ./...` ✓ · `go test ./...` (no test files) ✓
+- data-platform: `ruff check` ✓ · `pytest` 1 passed ✓
+- ai-sidecar: `ruff check` ✓ · `pytest` 1 passed ✓
+- frontend: `oxlint` ✓ (sin warnings) · `tsc -b` ✓
+
+Notas:
+- `pytest` sin archivos de test saldría con código 5; se agregó `tests/test_smoke.py` en data-platform y ai-sidecar para dejar `make verify` en 0.
+- `frontend/package.json` gana script `test` = `tsc -b` (typecheck; pruebas reales llegan en E6).
+- oxlint advertía `react(only-export-components)` por exportar `buttonVariants` desde `button.tsx` (patrón shadcn estándar); se desactiva esa regla en `frontend/.oxlintrc.json` para cumplir DoD-G (linter sin warnings). Exit code era 0 igualmente.
+- `make fmt` aplica `go fmt`, `ruff format` (sin formateador de frontend configurado en E0).
+
 ## Estado general
 
+- [x] E0-H1-T4.1 — `make -n <meta>` no falla en ninguna de las metas del PRD
+- [x] E0-H1-T4.2 — `make verify` encadena lint+test de los cuatro módulos con código de salida 0
 - [x] E0-H1-T1.1 — árbol de directorios creado y versionado
 - [x] E0-H1-T1.2 — `.gitignore` cubre `data/`, `lakehouse/`, `node_modules/`, `.venv/`, `dist/`, `*.duckdb`
 - [x] E0-H1-T2.1 — tres `SKILL.md` bajo `.claude/skills/`
