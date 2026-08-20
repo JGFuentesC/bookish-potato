@@ -1,0 +1,30 @@
+[project]
+name = "genbi-data"
+version = "0.1.0"
+description = "Plataforma de datos GenBI: contratos, ingesta y lakehouse"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.10",
+    "polars>=1.0",
+    "pyarrow>=17",
+    "psycopg[binary]>=3.2",
+    "duckdb>=1.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.9",
+    "mypy>=1.14",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

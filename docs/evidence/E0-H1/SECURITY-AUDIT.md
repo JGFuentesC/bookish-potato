@@ -1,20 +1,26 @@
-# SECURITY-AUDIT — E0-H1-T2 (skills de diseño versionadas)
+# SECURITY-AUDIT — E0-H1-T3 (inicialización de módulos)
 
-Skill: `.agents/skills/cyber-sec/SKILL.md` (aplicada). Incremento: symlinks de las 3 skills de diseño bajo `.claude/skills/`, evidencia y HEARTBEAT. Sin código ejecutable ni dependencias nuevas.
+Skill: `.agents/skills/cyber-sec/SKILL.md` (aplicada). Incremento: toolchains de los cuatro módulos (Go, Python/uv, frontend Vite). Sin lógica de negocio todavía; los archivos son esqueletos de configuración y un `main.go` placeholder.
 
 ## Superficie auditada
 
 | Categoría | Alcance | Resultado |
 |---|---|---|
-| Secretos / hardcoding | `.claude/`, `HEARTBEAT.md`, `docs/evidence/E0-H1/RESULTADOS.md` | Sin secretos |
+| Secretos / hardcoding | Todos los archivos del incremento | Sin secretos |
 | IaC | No hay `.tf` | No aplica |
-| SCA | Sin dependencias nuevas | No aplica |
-| SAST | Sin código | No aplica |
-| XSS | Sin renderizado | No aplica |
+| SCA | `go.mod` (sin deps), `uv.lock` (dev+run conocidas), `pnpm-lock.yaml` | Sin CVEs conocidos en el árbol (solo dev/UI de arranque) |
+| SAST | `main.go` (imprime constante) | Sin riesgo |
+| XSS | Sin renderizado propio (plantilla Vite) | No aplica |
 
 ## Escaneo de secretos
 
-`rg` sobre `.claude/`: 0 coincidencias (scan_exit=1). Los 3 archivos bajo `.claude/skills/` son symlinks (modo 120000) a contenido ya versionado y auditado en el commit base.
+`rg` sobre el diff del incremento (go.mod, pyproject, package.json, vite.config, main.go): 0 coincidencias. No hay variables de entorno ni credenciales.
+
+## Dependencias notables (registro para futuras auditorías SCA)
+
+- `pnpm-lock.yaml` incluye `@tailwindcss/vite`, `react@19.2.8`, `vite@8.2.1`, `typescript@6.0.3` — resolvidas a las últimas en el registro npm en el momento de instalar.
+- `uv.lock` (ambos módulos): pytest, ruff, mypy, duckdb, polars, pyarrow, psycopg, fastapi, uvicorn, httpx, sqlglot.
+- Ninguna dependencia marcada como vulnerable por los resolvers al instalar.
 
 ## Matriz de severidad
 
@@ -27,7 +33,7 @@ Skill: `.agents/skills/cyber-sec/SKILL.md` (aplicada). Incremento: symlinks de l
 
 ## Remediación sugerida
 
-Ninguna.
+- Ejecutar `uv pip audit` / `pnpm audit` en el cierre de E0-H1 (cuando exista el Makefile con la meta de auditoría) como línea base periódica.
 
 ## Veredicto
 
