@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+
+# Entornos / secretos
+.env
+.env.local
+*.pem
+
+# Config personal del asistente (skills locales)
+.agents/
+
+# Cachés y calidad de código
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# Datos de mercado (grandes, regenerables con scripts/)
+data/
+
+# Modelos ML entrenados (regenerables con scripts/train_forecast.py)
+models/
+
+# Logs y SO
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
