@@ -14,7 +14,7 @@ class Manager(BaseModel):
     name: str
     nickname: str | None = None
     dob: str | None = None
-    country: Country
+    country: Country | None = None
 
 
 class HomeTeam(BaseModel):
@@ -24,7 +24,7 @@ class HomeTeam(BaseModel):
     home_team_name: str
     home_team_gender: str
     country: Country
-    managers: list[Manager]
+    managers: list[Manager] = []
     home_team_group: str | None = None
 
 
@@ -35,7 +35,7 @@ class AwayTeam(BaseModel):
     away_team_name: str
     away_team_gender: str
     country: Country
-    managers: list[Manager]
+    managers: list[Manager] = []
     away_team_group: str | None = None
 
 
@@ -85,7 +85,7 @@ class Match(BaseModel):
 
     match_id: int
     match_date: str
-    kick_off: str
+    kick_off: str | None = None
     competition: MatchCompetition
     season: MatchSeason
     home_team: HomeTeam

@@ -36,9 +36,9 @@ class PlayerLineup(BaseModel):
     player_name: str
     player_nickname: str | None = None
     jersey_number: int
-    country: Country
-    cards: list[LineupCard]
-    positions: list[LineupPosition]
+    country: Country | None = None
+    cards: list[LineupCard] = []
+    positions: list[LineupPosition] = []
 
 
 class TeamLineup(BaseModel):

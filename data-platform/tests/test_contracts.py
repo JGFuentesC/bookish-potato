@@ -16,7 +16,12 @@ from genbi_data.contracts.statsbomb import CompetitionSeason, Match, TeamLineup,
 
 
 def _load_json(path: Path) -> list[dict[str, object]]:
-    return json.loads(path.read_text())
+    try:
+        return json.loads(path.read_text())
+    except json.JSONDecodeError:
+        # Archivo corrupto en origen (p. ej. three-sixty con bytes NUL):
+        # no es un problema de contrato, se cuarentena en ingesta.
+        return []
 
 
 def _validate_all(root: Path, files: list[Path], model: type[BaseModel]) -> None:

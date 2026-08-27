@@ -113,11 +113,43 @@ class Catalogs:
                 for key in ("body_part", "outcome", "technique"):
                     self.add(key, event.get(key))
                 for sub, *map_keys in (
-                    ("pass", "height", "pass_height", "type", "pass_type", "technique", "technique", "outcome", "outcome", "body_part", "body_part"),
-                    ("shot", "type", "shot_type", "body_part", "body_part", "technique", "technique", "outcome", "outcome"),
+                    (
+                        "pass",
+                        "height",
+                        "pass_height",
+                        "type",
+                        "pass_type",
+                        "technique",
+                        "technique",
+                        "outcome",
+                        "outcome",
+                        "body_part",
+                        "body_part",
+                    ),
+                    (
+                        "shot",
+                        "type",
+                        "shot_type",
+                        "body_part",
+                        "body_part",
+                        "technique",
+                        "technique",
+                        "outcome",
+                        "outcome",
+                    ),
                     ("duel", "type", "duel_type", "outcome", "outcome"),
                     ("dribble", "outcome", "outcome"),
-                    ("goalkeeper", "type", "goalkeeper_type", "outcome", "outcome", "body_part", "body_part", "technique", "technique"),
+                    (
+                        "goalkeeper",
+                        "type",
+                        "goalkeeper_type",
+                        "outcome",
+                        "outcome",
+                        "body_part",
+                        "body_part",
+                        "technique",
+                        "technique",
+                    ),
                     ("interception", "outcome", "outcome"),
                     ("clearance", "body_part", "body_part"),
                     ("block", "body_part", "body_part"),
@@ -137,13 +169,18 @@ class Catalogs:
                         self.add("card_type", payload.get("card"))
 
     def build_sql(self) -> str:
-        lines = ["-- Generado por scripts/derive_catalogs.py desde data/raw/data (StatsBomb open-data).", "-- No editar a mano: regenérase con uv run --project data-platform python -m scripts.derive_catalogs"]
+        lines = [
+            "-- Generado por scripts/derive_catalogs.py desde data/raw/data (StatsBomb open-data).",
+            "-- No editar a mano: regenérase con uv run --project data-platform python -m scripts.derive_catalogs",
+        ]
         for table in TABLES:
             id_col, name_col = COLUMNS[table]
             lines.append(f"-- {table}")
             for obj_id in sorted(self.values[table]):
                 name = self.values[table][obj_id]
-                lines.append(f"INSERT INTO oltp.{table} ({id_col}, {name_col}) VALUES ({obj_id}, {sql_literal(name)});")
+                lines.append(
+                    f"INSERT INTO oltp.{table} ({id_col}, {name_col}) VALUES ({obj_id}, {sql_literal(name)});"
+                )
         return "\n".join(lines) + "\n"
 
 

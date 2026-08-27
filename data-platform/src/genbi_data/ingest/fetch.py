@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 import urllib.request
@@ -173,7 +174,9 @@ def run(
 
     if scope == "full":
         _git_sync(raw_root)
-        payload = _full_payload(raw_root)
+        _index_full(raw_root, manifest, counts)
+        _write_manifest(raw_root, dict(manifest), scope, {})
+        return counts
     elif scope == "subset":
         if config_path is None or not config_path.is_file():
             raise FileNotFoundError(f"config/subset.yaml no encontrado: {config_path}")
@@ -250,20 +253,26 @@ def _resolve_subset_payload(
 def _git_sync(raw_root: Path) -> None:
     if (raw_root / ".git").exists():
         subprocess.run(["git", "-C", str(raw_root), "pull", "--rebase"], check=True)
-    else:
-        raw_root.mkdir(parents=True, exist_ok=True)
-        subprocess.run(["git", "clone", "--depth", "1", REPO_URL, str(raw_root)], check=True)
+        return
+    raw_root.parent.mkdir(parents=True, exist_ok=True)
+    tmp = raw_root.parent / (raw_root.name + ".tmp")
+    if tmp.exists():
+        shutil.rmtree(tmp)
+    subprocess.run(["git", "clone", "--depth", "1", REPO_URL, str(tmp)], check=True)
+    if raw_root.exists():
+        shutil.rmtree(raw_root)
+    tmp.rename(raw_root)
 
 
-def _full_payload(raw_root: Path) -> list[tuple[str, str]]:
-    """Tras clonar, 'descarga' = indexar los JSON ya presentes bajo ``raw_root/data/``."""
-    payload: list[tuple[str, str]] = []
+def _index_full(raw_root: Path, manifest: dict[str, str], counts: dict[str, int]) -> None:
+    """Indexa los JSON ya clonados bajo ``raw_root/data/`` (SHA-256 por archivo)."""
     data_dir = raw_root / "data"
     if not data_dir.is_dir():
         raise FileNotFoundError(f"{data_dir}: repositorio no clonado (scope=full)")
-    for path in data_dir.rglob("*.json"):
-        payload.append((str(path.relative_to(raw_root)), str(path)))
-    return payload
+    for path in sorted(data_dir.rglob("*.json")):
+        rel = str(path.relative_to(raw_root))
+        manifest[rel] = sha256_of(path)
+        counts["cacheado"] += 1
 
 
 def _project_root() -> Path:

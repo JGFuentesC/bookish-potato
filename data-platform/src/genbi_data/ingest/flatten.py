@@ -374,10 +374,13 @@ def _extract_freeze_frame(raw: dict[str, Any], event_id: str) -> list[dict[str, 
 
 def extract_event_extras(
     raw_events: list[dict[str, Any]],
+    inserted_ids: set[str] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """Extrae event_relation, shot_freeze_frame y tactics_* de los eventos crudos.
 
-    Devuelve dict con claves "relations", "freeze_frames" y "tactics" (listas de filas).
+    ``inserted_ids`` (opcional) restringe las relaciones a eventos realmente insertados
+    (los ``related_events`` pueden apuntar a eventos omitidos por malformados o de otro
+    partido). Devuelve dict con claves "relations", "freeze_frames" y "tactics".
     """
     relations: list[dict[str, Any]] = []
     freeze_frames: list[dict[str, Any]] = []
@@ -386,8 +389,11 @@ def extract_event_extras(
         event_id = raw.get("id", "")
         if not event_id:
             continue
+        if inserted_ids is not None and event_id not in inserted_ids:
+            continue
         for src, rel_id in _extract_related_events(raw):
-            relations.append({"event_id": src, "related_event_id": rel_id})
+            if inserted_ids is None or rel_id in inserted_ids:
+                relations.append({"event_id": src, "related_event_id": rel_id})
         freeze_frames.extend(_extract_freeze_frame(raw, event_id))
         t = raw.get("tactics")
         if isinstance(t, dict):

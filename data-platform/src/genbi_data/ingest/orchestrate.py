@@ -476,7 +476,8 @@ def _load_events_file(conn: psycopg.Connection, cache: EntityCache, path: Path) 
     # T2.2 + T2.3: event_relation, shot_freeze_frame, tactics_lineup, tactics_player
     from genbi_data.ingest.flatten import extract_event_extras
 
-    extras = extract_event_extras(raw_events)
+    inserted_ids = {str(ev["event_id"]) for ev in flattened}
+    extras = extract_event_extras(raw_events, inserted_ids)
     _load_event_extras(conn, cache, extras)
 
     return len(flattened)

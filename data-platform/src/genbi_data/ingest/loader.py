@@ -125,6 +125,16 @@ def _load_cache(conn: psycopg.Connection) -> EntityCache:
 # Upsert helpers
 # ---------------------------------------------------------------------------
 
+# Regiones usadas por competitions.json sin id natural de StatsBomb (agrupan
+# competiciones continentales). IDs fijos fuera del rango natural (3-249).
+_REGION_COUNTRY_IDS: dict[str, int] = {
+    "Africa": 900,
+    "Europe": 901,
+    "South America": 902,
+    "International": 903,
+    "North and Central America": 904,
+}
+
 
 def _ensure_country(
     conn: psycopg.Connection, cache: EntityCache, name: str, statsbomb_id: int | None = None
@@ -137,6 +147,8 @@ def _ensure_country(
     if row:
         cache._country[name] = row[0]
         return row[0]
+    if statsbomb_id is None:
+        statsbomb_id = _REGION_COUNTRY_IDS.get(name)
     if statsbomb_id is None:
         raise ValueError(f"country {name!r} sin id natural de StatsBomb")
     conn.execute(
@@ -509,9 +521,7 @@ def _insert_lineup(conn: psycopg.Connection, match_id: int, lineup: TeamLineup) 
     """Inserta alineación de un equipo: match_player + match_player_position + match_player_card."""
     for p in lineup.lineup:
         # match_player
-        country_id = 214  # default Spain
-        if p.country:
-            country_id = p.country.id
+        country_id = p.country.id if p.country else None
         conn.execute(
             """INSERT INTO oltp.match_player (match_id, player_id, team_id, jersey_number, country_id)
                VALUES (%s, %s, %s, %s, %s)
