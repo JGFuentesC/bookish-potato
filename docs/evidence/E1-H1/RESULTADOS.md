@@ -26,7 +26,7 @@ Fecha: 2026-08-26 · Estado: **verificado** (pendiente VoBo)
 | T3.2 | extensión vector | `SELECT extname FROM pg_extension WHERE extname='vector'` | `vector` |
 | DoD | ciclo completo | `make migrate-up && make migrate-down && make migrate-up` | 8/u → 8/d → 8/u, exit 0 |
 | DoD-G | lint+test 4 módulos | `make verify` | verde (go vet/test, ruff, pytest 2/2, tsc -b) |
-| T4.1 | ERD renderiza y cubre todo | `rg` por entidad vs `information_schema` | 56/56 tablas presentes |
+| T4.1 | ERD renderiza y cubre todo | `rg` por entidad vs `information_schema` + `mermaid.parse` (mermaid@11) | 56/56 tablas presentes · **MERMAID PARSE OK** |
 
 ## Muestras usadas
 

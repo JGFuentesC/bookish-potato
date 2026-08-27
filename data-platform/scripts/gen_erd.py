@@ -89,16 +89,20 @@ def build(schema: dict[str, dict]) -> str:
         fk_cols = {col for col, _ in by_table[table]}
         lines.append(f'    {label} {{')
         for col, dtype in entities[table]:
-            attrs = []
             if (table, col) in pks:
-                attrs.append("PK")
-            if col in fk_cols:
-                attrs.append("FK")
+                key = "PK"
+            elif col in fk_cols:
+                key = "FK"
+            else:
+                key = ""
             kind = ATTR_TYPE.get(dtype, dtype)
-            lines.append(f'        {kind} {col} {" ".join(attrs)}')
+            line = f"        {kind} {col}"
+            if key:
+                line += f" {key}"
+            lines.append(line)
         lines.append(f'    }}')
         for col, ref_table in by_table[table]:
-            lines.append(f'    {label} ||--o{{ {ref_table.upper()} : "{col}"')
+            lines.append(f'    {ref_table.upper()} ||--o{{ {label} : "{col}"')
     lines.append("```")
     lines.append("")
     lines.append(f"**{len(entities)} tablas** en esquema `oltp` · generado por `scripts/gen_erd.py` desde el esquema real.")
