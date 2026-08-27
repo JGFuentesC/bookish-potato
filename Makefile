@@ -53,8 +53,10 @@ define STUB
 	@exit 1
 endef
 
-data-pull: ## Baja el subset/full de StatsBomb (E1-H3)
-	$(call STUB,data-pull)
+SCOPE ?= subset
+
+data-pull: ## Baja el subset/full de StatsBomb a data/raw (E1-H2, uso: make data-pull SCOPE=full)
+	cd data-platform && $(UV) run python -m genbi_data.ingest.fetch --scope $(SCOPE)
 
 ingest: ## Ingesta cruda a lakehouse/bronze (E1)
 	$(call STUB,ingest)

@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "genbi-data"
 version = "0.1.0"
@@ -9,13 +13,18 @@ dependencies = [
     "pyarrow>=17",
     "psycopg[binary]>=3.2",
     "duckdb>=1.1",
+    "pyyaml>=6.0",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/genbi_data"]
 
 [dependency-groups]
 dev = [
     "pytest>=8.0",
     "ruff>=0.9",
     "mypy>=1.14",
+    "types-PyYAML>=6.0",
 ]
 
 [tool.ruff]

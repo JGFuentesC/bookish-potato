@@ -1,0 +1,11 @@
+# config/subset.yaml — alcance determinista de la ruta crítica (PRD §4.3, RF-08)
+#
+# El subset se define por competition_id/season_id, NUNCA por muestreo aleatorio.
+# Ruta crítica = La Liga (competition_id 11), temporadas 2019/20 (42) y 2020/21 (90).
+# SCOPE=full en `make data-pull` ignora este archivo y baja el repositorio íntegro.
+
+scope: subset
+
+competitions:
+  - competition_id: 11      # La Liga
+    season_ids: [90, 42]    # 2020/21, 2019/20

@@ -87,7 +87,7 @@ def build(schema: dict[str, dict]) -> str:
     for table in sorted(entities):
         label = table.upper()
         fk_cols = {col for col, _ in by_table[table]}
-        lines.append(f'    {label} {{')
+        lines.append(f"    {label} {{")
         for col, dtype in entities[table]:
             if (table, col) in pks:
                 key = "PK"
@@ -100,12 +100,14 @@ def build(schema: dict[str, dict]) -> str:
             if key:
                 line += f" {key}"
             lines.append(line)
-        lines.append(f'    }}')
+        lines.append("    }")
         for col, ref_table in by_table[table]:
             lines.append(f'    {ref_table.upper()} ||--o{{ {label} : "{col}"')
     lines.append("```")
     lines.append("")
-    lines.append(f"**{len(entities)} tablas** en esquema `oltp` · generado por `scripts/gen_erd.py` desde el esquema real.")
+    lines.append(
+        f"**{len(entities)} tablas** en esquema `oltp` · generado por `scripts/gen_erd.py` desde el esquema real."
+    )
     return "\n".join(lines) + "\n"
 
 
@@ -117,7 +119,9 @@ def main() -> None:
     with psycopg.connect(dsn) as conn:
         schema = load(conn)
     OUT.write_text(build(schema))
-    print(f"ERD escrito en {OUT.relative_to(ROOT)} con {len(schema['columns'])} tablas y {len(schema['refs'])} FKs")
+    print(
+        f"ERD escrito en {OUT.relative_to(ROOT)} con {len(schema['columns'])} tablas y {len(schema['refs'])} FKs"
+    )
 
 
 if __name__ == "__main__":

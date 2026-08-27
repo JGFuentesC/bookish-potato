@@ -1,0 +1,60 @@
+"""Contratos StatsBomb Open Data (PRD E1-H2): Pydantic estricto (extra='forbid')."""
+
+from genbi_data.contracts.statsbomb.competition import CompetitionSeason
+from genbi_data.contracts.statsbomb.event import (
+    SUBTYPE_BY_TYPE,
+    TACTICS_TYPES,
+    BadBehaviour,
+    BallReceipt,
+    BallRecovery,
+    Block,
+    Carry,
+    Clearance,
+    Dribble,
+    Duel,
+    Event,
+    FiftyFifty,
+    FoulCommitted,
+    FoulWon,
+    Goalkeeper,
+    InjuryStoppage,
+    Interception,
+    Miscontrol,
+    Pass,
+    Shot,
+    Substitution,
+    Tactics,
+)
+from genbi_data.contracts.statsbomb.lineup import PlayerLineup, TeamLineup
+from genbi_data.contracts.statsbomb.match import Match
+from genbi_data.contracts.statsbomb.three_sixty import ThreeSixty
+
+__all__ = [
+    "SUBTYPE_BY_TYPE",
+    "TACTICS_TYPES",
+    "BadBehaviour",
+    "BallReceipt",
+    "BallRecovery",
+    "Block",
+    "Carry",
+    "Clearance",
+    "CompetitionSeason",
+    "Dribble",
+    "Duel",
+    "Event",
+    "FiftyFifty",
+    "FoulCommitted",
+    "FoulWon",
+    "Goalkeeper",
+    "InjuryStoppage",
+    "Interception",
+    "Match",
+    "Miscontrol",
+    "Pass",
+    "PlayerLineup",
+    "Shot",
+    "Substitution",
+    "Tactics",
+    "TeamLineup",
+    "ThreeSixty",
+]
