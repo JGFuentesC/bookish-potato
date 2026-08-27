@@ -86,11 +86,26 @@ lineage: ## Genera el lineage del lakehouse (E2)
 model: ## Entrena/valida un modelo (E4, uso: make model MODEL=fct_shot)
 	$(call STUB,model)
 
+# ---- Migraciones OLTP (E1-H1) ----
+
+MIGRATE_IMG := migrate/migrate:v4.19.1
+PG_NETWORK ?= genbi_default
+PG_HOST := postgres
+PG_PORT := 5432
+MIGRATE = docker run --rm \
+	-v $(CURDIR)/data-platform/migrations:/migrations \
+	--network $(PG_NETWORK) \
+	-e PGPASSWORD=$(POSTGRES_PASSWORD) \
+	$(MIGRATE_IMG) -path /migrations \
+	-database "postgres://$(POSTGRES_USER)@$(PG_HOST):$(PG_PORT)/$(POSTGRES_DB)?sslmode=disable"
+
 migrate-up: ## Aplica migraciones OLTP (E1-H1)
-	$(call STUB,migrate-up)
+	$(COMPOSE) up -d --wait postgres
+	$(MIGRATE) up
 
 migrate-down: ## Revierte migraciones OLTP (E1-H1)
-	$(call STUB,migrate-down)
+	$(COMPOSE) up -d --wait postgres
+	$(MIGRATE) down -all
 
 ingest-report: ## Reporte de calidad de ingesta (E1)
 	$(call STUB,ingest-report)

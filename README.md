@@ -26,7 +26,7 @@ make logs      # logs (make logs SERVICE=app)
 make down      # detiene el stack
 ```
 
-Puertos publicados: app `http://localhost:8081`, sidecar `http://localhost:8000/health`, Postgres `localhost:5432`.
+Puertos publicados: app `http://localhost:8081`, sidecar `http://localhost:8000/health`, Postgres `localhost:5433` (5432 suele estar ocupado por otros Postgres locales).
 
 ## Ollama externo
 

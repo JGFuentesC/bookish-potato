@@ -4,8 +4,8 @@ Estado del desarrollo interactivo del PRD. Se lee antes de desarrollar y se actu
 
 ## Estado actual
 
-- **Fase**: E0 — Fundaciones y entorno
-- **Próximo incremento**: E1-H1 — esquema OLTP 3NF y migraciones
+- **Fase**: E1 — OLTP y contratos
+- **Próximo incremento**: E1-H2 — contratos Pydantic y descarga del dataset
 
 ## Hecho
 
@@ -16,6 +16,7 @@ Estado del desarrollo interactivo del PRD. Se lee antes de desarrollar y se actu
 - E0-H1-T5 — ADR-001 `docs/adr/ADR-001-stack-versions.md` con la sección 10 del PRD cerrada a versiones exactas verificadas contra registros oficiales (PyPI, npm, Go proxy, Docker Hub, GitHub releases, fecha 2026-08-19); lockfiles (`uv.lock`, `pnpm-lock.yaml`, `go.mod`) como fuente de las ya instaladas. Verificación T5.1: sin "≥" ni "por definir" en el ADR. Notas: Recharts 3.10.1 (shadcn charts ya soporta v3), go-duckdb v1.5.5 alineado con DuckDB Python 1.5.5. SECURITY-AUDIT: clearance, sin hallazgos (secretos: limpio; SCA por módulo con `uv audit`/`pnpm audit` limpio). De paso: regla dura en AGENTS.md que prohíbe `cd`/salir de la raíz y exige auditorías con `workdir=<módulo>`.
 - E0-H2 — Orquestación de contenedores: `infra/docker-compose.yml` (app, ai-sidecar, postgres pgvector/pg17; volúmenes `pgdata` + `lakehouse` bind host montado ro en app/sidecar; healthchecks + `depends_on: service_healthy`; env `${VAR:?}` desde direnv, sin `.env`). `Dockerfile.app` multi-stage Node→Go→distroless (imagen 15.3 MB < 80 MB, sirve SPA + `/healthz`, headers de seguridad). `Dockerfile.sidecar` python:3.12.14-slim + uv 0.11.6, usuario no-root `genbi`, `GET /health`. Servidor Go nuevo con SPA embebida y flag `-healthcheck`; FastAPI `genbi_ai.api.main`; build-system hatchling en pyproject. `.envrc` con `source_env_if_exists .envrc.local` (gitignored), `.env.example` plantilla, `README.md` con sección Ollama externo + atribución StatsBomb; Makefile `serve/up/down/restart/logs/ps` reales. Verificación: config válido, error claro sin vars, 3 healthy, persistencia Postgres+lakehouse tras `down && make serve`, `make verify` verde. Puerto app host 8081 (8080 ocupado). SECURITY-AUDIT: clearance, 2 LOW (root corregido, CSP diferido a E5/E6).
 - E0-H3 — Verificación del modelo local en platypy + **ADR-002**: candidata `gemma4:latest` (Gemma 4 8B Q4_K_M) carga **entera en GPU** (3.25 GB de 8 GB, `ollama ps` 100% GPU), TTFT mediano 0.48 s (< 3 s), 63.2 tok/s, prompt catálogo (~40 entidades, 578 tok) sin truncar con `num_ctx=8192`. Respaldo `gemma4:e2b-it-q4_K_M` (5.1B) verificado: 1.64 GB, TTFT 0.42 s, 109.2 tok/s. Embeddings `embeddinggemma` (dim 768, 0.175 s/ítem) coexiste con el LLM (4.97/8 GB, sin carga secuencial). `scripts/bench_model.py` + `scripts/prompt_catalogo.txt`; evidencia en `docs/evidence/E0-H3/` (RESULTADOS + 2 JSON bench + SECURITY-AUDIT). Tags fijados en `.env.example` (`OLLAMA_LLM_MODEL`, `OLLAMA_EMBEDDINGS_MODEL`) y ADR-001 actualizado. Nota: platypy corre Ollama 0.30.10 (ADR-001 fija 0.32.14; registrado en ADR-002). `make verify` verde. SECURITY-AUDIT: clearance, 1 LOW aceptado (bench acepta `--host` arbitrario; herramienta local).
+- E1-H1 — Esquema OLTP 3NF y migraciones. `make migrate-up/down` reales (golang-migrate v4.19.1 vía imagen Docker, red del compose, DSN sin password). 8 pares de migraciones: `0001_catalogs` (15 tablas + **semilla derivada del dataset real** por `scripts/derive_catalogs.py`: event_type=33, country, competition_stage, formation=10, etc.), `0002_master`–`0006_positional` (maestros, match, event UUID + 6 índices obligatorios, 18 especializaciones, posicionales), `0007_audit`, `0008_pgvector` (extension vector + semantic_embedding(768)). `scripts/gen_erd.py` genera `docs/erd-oltp.md` (ERD Mermaid desde el esquema real: **56 tablas, 94 FKs**). Puerto host Postgres → **5433** (5432 ocupado por otro Postgres local; README actualizado). Verificaciones: `\dt oltp.*` 15 catálogos, event_type 33 (>30), FK negativa falla (`event_match_id_fkey`), `EXPLAIN match_id` → `idx_event_match_index`, `pg_extension`=vector, ciclo `up&&down&&up` exit 0, `make verify` verde. Evidencia `docs/evidence/E1-H1/`. SECURITY-AUDIT: clearance, 1 LOW aceptado (PGPASSWORD visible en `docker run`; herramienta dev local, DSN sin password, re-evaluar en CI). Nota: datos transaccionales (partidos/alineaciones/eventos) llegan en E1-H3 (`make ingest`).
 
 ## Por hacer (orden canónico)
 
@@ -26,8 +27,8 @@ Estado del desarrollo interactivo del PRD. Se lee antes de desarrollar y se actu
 5. E0-H1-T5 — ADR-001 con versiones exactas del stack ✅
 6. E0-H2 — orquestación de contenedores ✅
 7. E0-H3 — verificación del modelo local en platypy (ADR-002) ✅
-8. E1-H1 — esquema OLTP 3NF y migraciones
-...
+8. E1-H1 — esquema OLTP 3NF y migraciones ✅
+9. E1-H2 — contratos Pydantic y descarga del dataset (subset: La Liga 2020/21 `11/90` + 2019/20 `11/42`)
 
 ## Notas
 
