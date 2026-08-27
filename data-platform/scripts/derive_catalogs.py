@@ -87,6 +87,10 @@ class Catalogs:
                 self.add("competition_stage", match.get("competition_stage"))
                 for side in ("home_team", "away_team"):
                     self.add("country", match.get(side, {}).get("country"))
+                    for mgr in match.get(side, {}).get("managers", []) or []:
+                        self.add("country", mgr.get("country"))
+                self.add("country", match.get("referee", {}).get("country"))
+                self.add("country", match.get("stadium", {}).get("country"))
 
     def from_lineups(self) -> None:
         for entries in self.iter_json("lineups"):
@@ -96,6 +100,7 @@ class Catalogs:
                 players = lineup.get("tactics", {}).get("lineup") or lineup.get("lineup") or []
                 for player in players:
                     self.add("position", player.get("position"))
+                    self.add("country", player.get("country"))
 
     def from_events(self) -> None:
         for events in self.iter_json("events"):
@@ -111,7 +116,8 @@ class Catalogs:
                     ("pass", "height", "pass_height", "type", "pass_type", "technique", "technique", "outcome", "outcome", "body_part", "body_part"),
                     ("shot", "type", "shot_type", "body_part", "body_part", "technique", "technique", "outcome", "outcome"),
                     ("duel", "type", "duel_type", "outcome", "outcome"),
-                    ("goalkeeper", "type", "goalkeeper_type", "outcome", "outcome", "body_part", "body_part"),
+                    ("dribble", "outcome", "outcome"),
+                    ("goalkeeper", "type", "goalkeeper_type", "outcome", "outcome", "body_part", "body_part", "technique", "technique"),
                     ("interception", "outcome", "outcome"),
                     ("clearance", "body_part", "body_part"),
                     ("block", "body_part", "body_part"),

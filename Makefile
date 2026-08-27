@@ -58,8 +58,8 @@ SCOPE ?= subset
 data-pull: ## Baja el subset/full de StatsBomb a data/raw (E1-H2, uso: make data-pull SCOPE=full)
 	cd data-platform && $(UV) run python -m genbi_data.ingest.fetch --scope $(SCOPE)
 
-ingest: ## Ingesta cruda a lakehouse/bronze (E1)
-	$(call STUB,ingest)
+ingest: ## Ingesta de datos validados a OLTP (E1-H3, uso: make ingest SCOPE=subset)
+	cd data-platform && $(UV) run python -m genbi_data.ingest --scope $(SCOPE)
 
 bronze: ## Construye capa bronze (E1)
 	$(call STUB,bronze)
@@ -109,8 +109,8 @@ migrate-down: ## Revierte migraciones OLTP (E1-H1)
 	$(COMPOSE) up -d --wait postgres
 	$(MIGRATE) down -all
 
-ingest-report: ## Reporte de calidad de ingesta (E1)
-	$(call STUB,ingest-report)
+ingest-report: ## Reporte de ingesta OLTP (E1-H3)
+	cd data-platform && $(UV) run python -m genbi_data.ingest.report
 
 ingest-360: ## Ingesta de datos 360 (E1)
 	$(call STUB,ingest-360)
