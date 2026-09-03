@@ -56,8 +56,8 @@ con el secreto) por la historia reescrita. Tras el push, actualizar el ref local
 objetos viejos locales. NOTA: si alguien ya clonó con el commit viejo, el secreto
 siguió expuesto para él; con un repo privado el riesgo es bajo.
 
-**Controles compensatorios:** credencial de desarrollo local efímera
-(`<password-dev>`), no usada en producción ni en CI.
+**Controles compensatorios:** credencial de desarrollo local efímera (valor
+redactado), no usada en producción ni en CI.
 
 ### [MEDIUM] #2 — `.envrc` versionado
 `git ls-files` incluía `.envrc`. Su contenido era seguro (defaults vacíos +
