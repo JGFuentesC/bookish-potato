@@ -13,7 +13,9 @@ partidos y obtén tablas y visualizaciones a partir de un lakehouse en Parquet c
 ## Requisitos
 
 - Docker (24+) y Docker Compose.
-- `direnv` para las variables de entorno (copiar overrides locales a `.envrc.local`, gitignored).
+- `direnv` para las variables de entorno: copiar `.envrc.example` a `.envrc`
+  (`cp .envrc.example .envrc`) y los overrides reales (password de Postgres,
+  URL de Ollama) a `.envrc.local` — ambos gitignored.
 - Ollama **externo** en una máquina remota (ver abajo).
 
 ## Arranque

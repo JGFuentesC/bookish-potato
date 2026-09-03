@@ -8,8 +8,9 @@ dist/
 
 # Entornos / secretos
 .env
-.env.local
+.envrc
 .envrc.local
+.env.local
 *.pem
 
 
