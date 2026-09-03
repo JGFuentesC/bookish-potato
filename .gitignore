@@ -51,3 +51,6 @@ backend/cmd/server/dist/*
 Thumbs.db
 .idea/
 *.swp
+
+# ADK (Google Agent Development Kit) — estado de sesión local
+.adk/

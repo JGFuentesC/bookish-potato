@@ -135,9 +135,15 @@ tables:
   - name: competition_id
     type: integer
     description: Id de la competición.
+  - name: competition_name
+    type: varchar
+    description: Nombre de la competición (p. ej. La Liga).
   - name: season_id
     type: integer
     description: Id de la temporada.
+  - name: season_name
+    type: varchar
+    description: Nombre de la temporada (p. ej. 2020/2021).
   - name: minute
     type: integer
     description: Minuto del pase.
@@ -226,9 +232,15 @@ tables:
   - name: competition_id
     type: integer
     description: Id de la competición.
+  - name: competition_name
+    type: varchar
+    description: Nombre de la competición (p. ej. La Liga).
   - name: season_id
     type: integer
     description: Id de la temporada.
+  - name: season_name
+    type: varchar
+    description: Nombre de la temporada (p. ej. 2020/2021).
   - name: minute
     type: integer
     description: Minuto del disparo.

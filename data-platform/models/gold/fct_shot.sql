@@ -3,7 +3,9 @@ SELECT
     ev.match_id,
     m.match_date,
     m.competition_id,
+    c.competition_name,
     m.season_id,
+    s.season_name,
     ev.minute,
     ev.second,
     ev.period,
@@ -28,6 +30,8 @@ SELECT
 FROM pg.oltp.event_shot es
 JOIN pg.oltp.event ev ON ev.event_id = es.event_id
 JOIN pg.oltp.match m ON m.match_id = ev.match_id
+JOIN pg.oltp.competition c ON c.competition_id = m.competition_id
+JOIN pg.oltp.season s ON s.season_id = m.season_id
 LEFT JOIN pg.oltp.team t ON t.team_id = ev.team_id
 LEFT JOIN pg.oltp.player p ON p.player_id = ev.player_id
 LEFT JOIN pg.oltp.shot_type st ON st.shot_type_id = es.shot_type_id

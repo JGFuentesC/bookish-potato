@@ -4,10 +4,9 @@ Estado del desarrollo interactivo del PRD. Se lee antes de desarrollar y se actu
 
 ## Estado actual
 
-- **Fase**: E2 — Medallón (gold POC) · re-escopeado por decisión: priorizar NLtoSQL
-- **Próximo incremento**: E3-H1 (exploración de datos + spike NLtoSQL/agente) o
-  E2-H2/H3 (bronze/silver) según decisión del usuario. El runner y la vista gold
-  sencilla ya permiten empezar talk-to-your-data.
+- **Fase**: E3-lite — agente ADK talk-to-your-data funcionando sobre gold
+- **Próximo incremento**: formalizar E3-H1 (ADR-003, estrategia NL2SQL) o
+  integrar el agente al frontend (chat) — ver decisión del usuario.
 
 ## Hecho
 
@@ -23,6 +22,7 @@ Estado del desarrollo interactivo del PRD. Se lee antes de desarrollar y se actu
 - E1-H3 — Cargador paralelo e idempotente a OLTP. `ingest/loader.py` (EntityCache + upsert de maestros con `COPY` binario), `ingest/flatten.py` (evento base + 18 subtipos + `extract_event_extras` para relation/freeze/tactics), `ingest/orchestrate.py` (descubrimiento por orden de dependencias, auditoría `ingestion_run`/`ingestion_file`, idempotencia por SHA-256, transacción por archivo), `ingest/report.py` (`make ingest-report`), `ingest/__main__.py` (CLI). **Fix clave: `country_id` = ID natural StatsBomb derivado de datos crudos** (`derive_catalogs.py` ahora extrae `player.country` de lineups + managers/referee/stadium de matches; 64 países, sin colisiones `MAX+1`); semilla inline de `0001_catalogs.up.sql` regenerada. `_load_competitions` filtra al subset (`config/subset.yaml`) → solo La Liga (competition=1), regiones irrelevantes excluidas. Subset cargado: event 268 088, match 68, match_player 2 823, player 700, event_relation 394 540, shot_freeze_frame 22 237, tactics 277/3 047. Idempotencia verificada (2ª corrida: 139 omitidos, conteos idénticos). `make verify` verde. Evidencia `docs/evidence/E1-H3/`. SECURITY-AUDIT: clearance, 1 MEDIUM (5 CVEs stdlib Go 1.26.5→1.26.6, preexistente, aplazado a E5) + 2 LOW.
 - E1-H4 (parcial) — **Carga completa + persistencia**: `make data-pull SCOPE=full` (clon `--depth 1`, 17 GB) + `make ingest SCOPE=full` (8551 archivos, 4235 partidos, **13 911 057 eventos**, 0 errores, `status=success`, 1818.7 s). Contratos ampliados al dataset completo: `Match.managers`/`kick_off` opcionales, `PlayerLineup.country` opcional; `test_contracts.py` salta un `three-sixty` corrupto en origen (bytes NUL). Semilla re-derivada del dataset completo (155 países + 3 regiones mapeadas a IDs fijos 900-904). `event_relation` filtrado a `inserted_ids` para evitar FKs huérfanas. **Persistencia verificada**: `make down` (sin `-v`) → `make up` → conteos intactos (named volume `pgdata`). Idempotencia full (2ª corrida: 8551 omitidos). `make verify` verde. Evidencia `docs/evidence/E1-H4/`. SECURITY-AUDIT: clearance, mismo MEDIUM stdlib Go + 2 LOW. Nota: **`make ingest-360` CANCELADO por decisión (POC)** — las tablas `three_sixty_*` quedan vacías y el sistema funciona sin ellas (a verificar T2.2 cuando exista gold full).
 - E2-H1 (Gold POC) — **Runner + vista gold + consulta semántica** (re-escopeado, velocidad absoluta). Runner propio (E2-H1 core): contratos YAML (`runner/contracts.py` DataContract), DAG topológico con ciclos (`runner/dag.py`), ejecución DuckDB↔Postgres → Parquet (`runner/execute.py`), calidad `{not_null,unique,accepted_values,row_count_min,expression}` con severidad error/warn (`quality/tests.py`), reporte JSON por run, `make gold`/`make model MODEL=x`/`make lineage` reales. **Vista gold sencilla** (6 tablas, `models/gold/*`): dim_competition_season 80, dim_match 3 961, dim_player 11 794, dim_team 354, fct_pass 3 835 833, fct_shot 101 224 — 0 pruebas fallidas. **Catálogo semántico** `ai-sidecar/semantic/catalog.yaml` generado desde los contratos (`scripts/gen_catalog.py`, fuente única) y **endpoint `POST /api/v1/query`** (solo SELECT, allow-list, LIMIT forzado, timeout por hilo; tablas-función `read_parquet` rechazadas). Verificado end-to-end por HTTP (Messi 508 goles, 7 ms). `make verify` exit 0 (data-platform 48, ai-sidecar 15 tests). Evidencia `docs/evidence/E2-H1/`. SECURITY-AUDIT: 1 MEDIUM corregido (tabla-función DuckDB) + 1 LOW aceptado (endpoint sin auth, POC local). Nota: docker-compose `LAKEHOUSE_PATH=/lakehouse/gold`.
+- ADK (talk-to-your-data) — **Agente ADK 2.0 sobre gold** (`ai-sidecar/adk_agent/`): `root_agent` (LlmAgent `genbi_futbol`) con `LiteLlm(ollama_chat/gemma4:latest)` (ADR-002) y tool `query_gold(sql)` → endpoint sidecar (NL2SQL grounding Postgres). Instrucción construida desde el catálogo semántico. Corre con `adk web ... --port 8001`. **Fix gold descubierto en el demo**: fct_shot/fct_pass no tenían `competition_name`/`season_name` (Binder Error al filtrar "La Liga") → añadidas con joins, contratos + catálogo regenerados y modelos reconstruidos. **8/8 escenarios respondidos correctamente** vía Chrome DevTools MCP (goleador 508, xG La Liga 0.111, pases Messi 33 031, asistencias 220, penales 1 095, fuera de área 1 800, pases Barcelona 367 725, resultados 2020/21). Artefactos: `docs/evidence/E2-H1-adk/report.html` (HTML autocontenido, base64) con sidebar + canvas + `ui-demo.gif` (screenshots ffmpeg), `RESULTADOS.md`, `SECURITY-AUDIT.md` (2 LOW aceptados). `make verify` exit 0. Nota: google-adk vive en venv scratch fuera del repo; el sidecar de producción (uvicorn :8000) no se modifica.
 
 ## Por hacer (orden canónico)
 
@@ -38,6 +38,7 @@ Estado del desarrollo interactivo del PRD. Se lee antes de desarrollar y se actu
 10. E1-H3 — cargador paralelo e idempotente a OLTP ✅
 11. E1-H4 — carga completa en segundo plano ✅ (360 cancelado por decisión POC)
 12. E2-H1 — runner + vista gold + consulta semántica (Gold POC) ✅
+13. ADK — agente talk-to-your-data (llms-full.txt ADK 2.0, Ollama platypy, 8/8 escenarios) ✅
 
 ## Notas
 
