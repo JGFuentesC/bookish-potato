@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 
+from genbi_ai.api.query import router as query_router
+
 app = FastAPI(title="GenBI AI sidecar", version="0.1.0")
+app.include_router(query_router)
 
 
 @app.get("/health")

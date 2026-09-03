@@ -25,7 +25,7 @@ services:
     environment:
       PORT: "8000"
       OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:?OLLAMA_BASE_URL no definida: revisa .envrc.local}"
-      LAKEHOUSE_PATH: /lakehouse
+      LAKEHOUSE_PATH: /lakehouse/gold
       QUERY_TIMEOUT_MS: ${QUERY_TIMEOUT_MS:-30000}
       MAX_ROWS: ${MAX_ROWS:-1000}
     volumes:
@@ -48,7 +48,7 @@ services:
     image: genbi-app:latest
     environment:
       PORT: "8080"
-      LAKEHOUSE_PATH: /lakehouse
+      LAKEHOUSE_PATH: /lakehouse/gold
       SIDECAR_URL: "${SIDECAR_URL:?SIDECAR_URL no definida: revisa .envrc.local}"
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
       QUERY_TIMEOUT_MS: ${QUERY_TIMEOUT_MS:-30000}

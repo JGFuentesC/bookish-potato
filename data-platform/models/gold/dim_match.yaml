@@ -1,0 +1,70 @@
+name: dim_match
+layer: gold
+description: Dimensión de partidos (con resultado, equipos, estadio y árbitro).
+grain: match_id
+depends_on: []
+columns:
+  - name: match_id
+    type: integer
+    description: Id del partido (StatsBomb).
+  - name: competition_id
+    type: integer
+    description: Id de la competición.
+  - name: season_id
+    type: integer
+    description: Id de la temporada.
+  - name: competition_name
+    type: varchar
+    description: Nombre de la competición.
+  - name: season_name
+    type: varchar
+    description: Nombre de la temporada.
+  - name: match_date
+    type: date
+    description: Fecha del partido.
+  - name: match_week
+    type: integer
+    description: Jornada de la competición.
+  - name: home_team_id
+    type: integer
+    description: Id del equipo local.
+  - name: home_team_name
+    type: varchar
+    description: Nombre del equipo local.
+  - name: away_team_id
+    type: integer
+    description: Id del equipo visitante.
+  - name: away_team_name
+    type: varchar
+    description: Nombre del equipo visitante.
+  - name: home_score
+    type: integer
+    description: Goles del equipo local.
+  - name: away_score
+    type: integer
+    description: Goles del equipo visitante.
+  - name: home_result
+    type: varchar
+    description: Resultado local (H = victoria local, A = victoria visitante, D = empate).
+  - name: stadium_name
+    type: varchar
+    description: Nombre del estadio.
+  - name: referee_name
+    type: varchar
+    description: Nombre del árbitro.
+  - name: competition_stage_name
+    type: varchar
+    description: Etapa de la competición (p. ej. Regular Season).
+tests:
+  - type: unique
+    column: match_id
+    severity: error
+  - type: not_null
+    column: match_id
+    severity: error
+  - type: not_null
+    column: match_date
+    severity: error
+  - type: row_count_min
+    min_rows: 1
+    severity: error

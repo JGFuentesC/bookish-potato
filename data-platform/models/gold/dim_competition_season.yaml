@@ -1,0 +1,49 @@
+name: dim_competition_season
+layer: gold
+description: Dimensión de competición y temporada (identidad de la temporada).
+grain: competition_id + season_id
+depends_on: []
+columns:
+  - name: competition_id
+    type: integer
+    description: Id de la competición (StatsBomb).
+  - name: season_id
+    type: integer
+    description: Id de la temporada (StatsBomb).
+  - name: competition_name
+    type: varchar
+    description: Nombre de la competición (p. ej. La Liga).
+  - name: season_name
+    type: varchar
+    description: Nombre de la temporada (p. ej. 2020/2021).
+  - name: country_name
+    type: varchar
+    description: País de la competición.
+  - name: competition_gender
+    type: varchar
+    description: Género de la competición (Male/Female).
+  - name: is_youth
+    type: boolean
+    description: Indica si es competición juvenil.
+  - name: is_international
+    type: boolean
+    description: Indica si es competición internacional.
+  - name: match_updated
+    type: timestamp
+    description: Última actualización de partidos de la temporada.
+tests:
+  - type: not_null
+    column: competition_id
+    severity: error
+  - type: not_null
+    column: season_id
+    severity: error
+  - type: not_null
+    column: competition_name
+    severity: error
+  - type: not_null
+    column: season_name
+    severity: error
+  - type: row_count_min
+    min_rows: 1
+    severity: error

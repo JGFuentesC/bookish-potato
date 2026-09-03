@@ -1,0 +1,294 @@
+version: 1
+tables:
+- name: dim_competition_season
+  description: Dimensión de competición y temporada (identidad de la temporada).
+  grain: competition_id + season_id
+  columns:
+  - name: competition_id
+    type: integer
+    description: Id de la competición (StatsBomb).
+  - name: season_id
+    type: integer
+    description: Id de la temporada (StatsBomb).
+  - name: competition_name
+    type: varchar
+    description: Nombre de la competición (p. ej. La Liga).
+  - name: season_name
+    type: varchar
+    description: Nombre de la temporada (p. ej. 2020/2021).
+  - name: country_name
+    type: varchar
+    description: País de la competición.
+  - name: competition_gender
+    type: varchar
+    description: Género de la competición (Male/Female).
+  - name: is_youth
+    type: boolean
+    description: Indica si es competición juvenil.
+  - name: is_international
+    type: boolean
+    description: Indica si es competición internacional.
+  - name: match_updated
+    type: timestamp
+    description: Última actualización de partidos de la temporada.
+- name: dim_match
+  description: Dimensión de partidos (con resultado, equipos, estadio y árbitro).
+  grain: match_id
+  columns:
+  - name: match_id
+    type: integer
+    description: Id del partido (StatsBomb).
+  - name: competition_id
+    type: integer
+    description: Id de la competición.
+  - name: season_id
+    type: integer
+    description: Id de la temporada.
+  - name: competition_name
+    type: varchar
+    description: Nombre de la competición.
+  - name: season_name
+    type: varchar
+    description: Nombre de la temporada.
+  - name: match_date
+    type: date
+    description: Fecha del partido.
+  - name: match_week
+    type: integer
+    description: Jornada de la competición.
+  - name: home_team_id
+    type: integer
+    description: Id del equipo local.
+  - name: home_team_name
+    type: varchar
+    description: Nombre del equipo local.
+  - name: away_team_id
+    type: integer
+    description: Id del equipo visitante.
+  - name: away_team_name
+    type: varchar
+    description: Nombre del equipo visitante.
+  - name: home_score
+    type: integer
+    description: Goles del equipo local.
+  - name: away_score
+    type: integer
+    description: Goles del equipo visitante.
+  - name: home_result
+    type: varchar
+    description: Resultado local (H = victoria local, A = victoria visitante, D =
+      empate).
+  - name: stadium_name
+    type: varchar
+    description: Nombre del estadio.
+  - name: referee_name
+    type: varchar
+    description: Nombre del árbitro.
+  - name: competition_stage_name
+    type: varchar
+    description: Etapa de la competición (p. ej. Regular Season).
+- name: dim_player
+  description: Dimensión de jugadores.
+  grain: player_id
+  columns:
+  - name: player_id
+    type: integer
+    description: Id del jugador (StatsBomb).
+  - name: player_name
+    type: varchar
+    description: Nombre del jugador.
+  - name: player_nickname
+    type: varchar
+    description: Apodo del jugador.
+  - name: player_country_name
+    type: varchar
+    description: País del jugador.
+- name: dim_team
+  description: Dimensión de equipos.
+  grain: team_id
+  columns:
+  - name: team_id
+    type: integer
+    description: Id del equipo (StatsBomb).
+  - name: team_name
+    type: varchar
+    description: Nombre del equipo.
+  - name: team_gender
+    type: varchar
+    description: Género del equipo.
+  - name: team_country_name
+    type: varchar
+    description: País del equipo.
+- name: fct_pass
+  description: Hecho de pases (todos los pases de todos los partidos).
+  grain: event_id
+  columns:
+  - name: event_id
+    type: uuid
+    description: Id del evento (pase).
+  - name: match_id
+    type: integer
+    description: Id del partido.
+  - name: match_date
+    type: date
+    description: Fecha del partido.
+  - name: competition_id
+    type: integer
+    description: Id de la competición.
+  - name: season_id
+    type: integer
+    description: Id de la temporada.
+  - name: minute
+    type: integer
+    description: Minuto del pase.
+  - name: second
+    type: numeric
+    description: Segundo del pase.
+  - name: period
+    type: integer
+    description: Período (1 = 1er tiempo, 2 = 2º tiempo).
+  - name: team_id
+    type: integer
+    description: Id del equipo que pasa.
+  - name: team_name
+    type: varchar
+    description: Nombre del equipo que pasa.
+  - name: player_id
+    type: integer
+    description: Id del jugador que pasa.
+  - name: player_name
+    type: varchar
+    description: Nombre del jugador que pasa.
+  - name: location_x
+    type: numeric
+    description: Coordenada X del inicio del pase (0-120).
+  - name: location_y
+    type: numeric
+    description: Coordenada Y del inicio del pase (0-80).
+  - name: pass_length
+    type: numeric
+    description: Longitud del pase en metros.
+  - name: pass_angle
+    type: numeric
+    description: Ángulo del pase en grados.
+  - name: pass_height_name
+    type: varchar
+    description: Altura del pase (Ground Pass, Low Pass, High Pass).
+  - name: pass_type_name
+    type: varchar
+    description: Tipo de pase (Corner, Free Kick, Throw-in, Kick Off...).
+  - name: technique_name
+    type: varchar
+    description: Técnica del pase (Normal, Through Ball, Backheel...).
+  - name: body_part_name
+    type: varchar
+    description: Parte del cuerpo usada.
+  - name: outcome_name
+    type: varchar
+    description: Resultado del pase (Complete, Incomplete...).
+  - name: is_assist
+    type: boolean
+    description: True si el pase es asistencia.
+  - name: is_shot_assist
+    type: boolean
+    description: True si el pase es asistencia de disparo.
+  - name: is_goal_assist
+    type: boolean
+    description: True si el pase es asistencia de gol.
+  - name: recipient_id
+    type: integer
+    description: Id del jugador receptor.
+  - name: recipient_name
+    type: varchar
+    description: Nombre del jugador receptor.
+  - name: under_pressure
+    type: boolean
+    description: True si pasó bajo presión.
+  - name: play_pattern_id
+    type: integer
+    description: Id del patrón de juego.
+  - name: play_pattern_name
+    type: varchar
+    description: Patrón de juego (Regular Play, From Corner, From Counter...).
+- name: fct_shot
+  description: Hecho de disparos (todos los tiros de todos los partidos).
+  grain: event_id
+  columns:
+  - name: event_id
+    type: uuid
+    description: Id del evento (disparo).
+  - name: match_id
+    type: integer
+    description: Id del partido.
+  - name: match_date
+    type: date
+    description: Fecha del partido.
+  - name: competition_id
+    type: integer
+    description: Id de la competición.
+  - name: season_id
+    type: integer
+    description: Id de la temporada.
+  - name: minute
+    type: integer
+    description: Minuto del disparo.
+  - name: second
+    type: numeric
+    description: Segundo del disparo.
+  - name: period
+    type: integer
+    description: Período (1 = 1er tiempo, 2 = 2º tiempo).
+  - name: team_id
+    type: integer
+    description: Id del equipo que dispara.
+  - name: team_name
+    type: varchar
+    description: Nombre del equipo que dispara.
+  - name: player_id
+    type: integer
+    description: Id del jugador que dispara.
+  - name: player_name
+    type: varchar
+    description: Nombre del jugador que dispara.
+  - name: location_x
+    type: numeric
+    description: Coordenada X del disparo (0-120).
+  - name: location_y
+    type: numeric
+    description: Coordenada Y del disparo (0-80).
+  - name: xg
+    type: numeric
+    description: Probabilidad de gol esperada (0-1).
+  - name: is_goal
+    type: boolean
+    description: True si el disparo terminó en gol.
+  - name: shot_type_name
+    type: varchar
+    description: Tipo de disparo (Open Play, Penalty, Free Kick...).
+  - name: body_part_name
+    type: varchar
+    description: Parte del cuerpo con la que se disparó.
+  - name: technique_name
+    type: varchar
+    description: Técnica del disparo (Normal, Volley, Header...).
+  - name: outcome_name
+    type: varchar
+    description: Resultado del disparo (Goal, Saved, Off T, Blocked...).
+  - name: first_time
+    type: boolean
+    description: True si el disparo fue al primer toque.
+  - name: open_goal
+    type: boolean
+    description: True si disparó con portería abierta.
+  - name: deflected
+    type: boolean
+    description: True si el disparo fue desviado.
+  - name: under_pressure
+    type: boolean
+    description: True si disparó bajo presión.
+  - name: play_pattern_id
+    type: integer
+    description: Id del patrón de juego.
+  - name: play_pattern_name
+    type: varchar
+    description: Patrón de juego (Regular Play, From Corner, From Counter...).

@@ -4,6 +4,7 @@ ENV UV_LINK_MODE=copy PYTHONUNBUFFERED=1 UV_COMPILE_BYTECODE=1
 WORKDIR /app
 COPY ai-sidecar/pyproject.toml ai-sidecar/uv.lock ./
 COPY ai-sidecar/src ./src
+COPY ai-sidecar/semantic ./semantic
 RUN uv sync --frozen --no-dev
 RUN useradd --create-home --uid 10001 genbi && chown -R genbi:genbi /app
 USER genbi

@@ -67,8 +67,8 @@ bronze: ## Construye capa bronze (E1)
 silver: ## Construye capa silver (E2)
 	$(call STUB,silver)
 
-gold: ## Construye capa gold (E2)
-	$(call STUB,gold)
+gold: ## Construye capa gold (E2, uso: make gold [LAYER=gold] [MODEL=])
+	cd data-platform && $(UV) run python -m genbi_data.runner --layer $(or $(LAYER),gold) $(if $(MODEL),--select $(MODEL))
 
 serve: ## Sirve la app (E0-H2): construye, levanta y espera healthchecks
 	$(COMPOSE) up -d --build --wait
@@ -83,10 +83,11 @@ report: ## Genera el reporte del arnes de evaluacion (E3)
 	$(call STUB,report)
 
 lineage: ## Genera el lineage del lakehouse (E2)
-	$(call STUB,lineage)
+	cd data-platform && $(UV) run python -c \
+		"from genbi_data.runner.lineage import main; from pathlib import Path; import sys; sys.exit(main(Path('models'), Path('../docs/lineage.md')))"
 
-model: ## Entrena/valida un modelo (E4, uso: make model MODEL=fct_shot)
-	$(call STUB,model)
+model: ## Reconstruye un modelo del lakehouse (E2, uso: make model MODEL=fct_shot)
+	cd data-platform && $(UV) run python -m genbi_data.runner --layer $(or $(LAYER),gold) --select $(MODEL)
 
 # ---- Migraciones OLTP (E1-H1) ----
 

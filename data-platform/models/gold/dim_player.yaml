@@ -1,0 +1,31 @@
+name: dim_player
+layer: gold
+description: Dimensión de jugadores.
+grain: player_id
+depends_on: []
+columns:
+  - name: player_id
+    type: integer
+    description: Id del jugador (StatsBomb).
+  - name: player_name
+    type: varchar
+    description: Nombre del jugador.
+  - name: player_nickname
+    type: varchar
+    description: Apodo del jugador.
+  - name: player_country_name
+    type: varchar
+    description: País del jugador.
+tests:
+  - type: unique
+    column: player_id
+    severity: error
+  - type: not_null
+    column: player_id
+    severity: error
+  - type: not_null
+    column: player_name
+    severity: error
+  - type: row_count_min
+    min_rows: 1
+    severity: error

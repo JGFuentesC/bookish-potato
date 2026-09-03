@@ -1,0 +1,31 @@
+name: dim_team
+layer: gold
+description: Dimensión de equipos.
+grain: team_id
+depends_on: []
+columns:
+  - name: team_id
+    type: integer
+    description: Id del equipo (StatsBomb).
+  - name: team_name
+    type: varchar
+    description: Nombre del equipo.
+  - name: team_gender
+    type: varchar
+    description: Género del equipo.
+  - name: team_country_name
+    type: varchar
+    description: País del equipo.
+tests:
+  - type: unique
+    column: team_id
+    severity: error
+  - type: not_null
+    column: team_id
+    severity: error
+  - type: not_null
+    column: team_name
+    severity: error
+  - type: row_count_min
+    min_rows: 1
+    severity: error

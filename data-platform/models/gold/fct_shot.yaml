@@ -1,0 +1,103 @@
+name: fct_shot
+layer: gold
+description: Hecho de disparos (todos los tiros de todos los partidos).
+grain: event_id
+depends_on: []
+columns:
+  - name: event_id
+    type: uuid
+    description: Id del evento (disparo).
+  - name: match_id
+    type: integer
+    description: Id del partido.
+  - name: match_date
+    type: date
+    description: Fecha del partido.
+  - name: competition_id
+    type: integer
+    description: Id de la competición.
+  - name: season_id
+    type: integer
+    description: Id de la temporada.
+  - name: minute
+    type: integer
+    description: Minuto del disparo.
+  - name: second
+    type: numeric
+    description: Segundo del disparo.
+  - name: period
+    type: integer
+    description: Período (1 = 1er tiempo, 2 = 2º tiempo).
+  - name: team_id
+    type: integer
+    description: Id del equipo que dispara.
+  - name: team_name
+    type: varchar
+    description: Nombre del equipo que dispara.
+  - name: player_id
+    type: integer
+    description: Id del jugador que dispara.
+  - name: player_name
+    type: varchar
+    description: Nombre del jugador que dispara.
+  - name: location_x
+    type: numeric
+    description: Coordenada X del disparo (0-120).
+  - name: location_y
+    type: numeric
+    description: Coordenada Y del disparo (0-80).
+  - name: xg
+    type: numeric
+    description: Probabilidad de gol esperada (0-1).
+  - name: is_goal
+    type: boolean
+    description: True si el disparo terminó en gol.
+  - name: shot_type_name
+    type: varchar
+    description: Tipo de disparo (Open Play, Penalty, Free Kick...).
+  - name: body_part_name
+    type: varchar
+    description: Parte del cuerpo con la que se disparó.
+  - name: technique_name
+    type: varchar
+    description: Técnica del disparo (Normal, Volley, Header...).
+  - name: outcome_name
+    type: varchar
+    description: Resultado del disparo (Goal, Saved, Off T, Blocked...).
+  - name: first_time
+    type: boolean
+    description: True si el disparo fue al primer toque.
+  - name: open_goal
+    type: boolean
+    description: True si disparó con portería abierta.
+  - name: deflected
+    type: boolean
+    description: True si el disparo fue desviado.
+  - name: under_pressure
+    type: boolean
+    description: True si disparó bajo presión.
+  - name: play_pattern_id
+    type: integer
+    description: Id del patrón de juego.
+  - name: play_pattern_name
+    type: varchar
+    description: Patrón de juego (Regular Play, From Corner, From Counter...).
+tests:
+  - type: unique
+    column: event_id
+    severity: error
+  - type: not_null
+    column: event_id
+    severity: error
+  - type: not_null
+    column: match_id
+    severity: error
+  - type: not_null
+    column: player_id
+    severity: warn
+  - type: not_null
+    column: team_id
+    severity: warn
+  - type: row_count_min
+    min_rows: 1000
+    severity: error
