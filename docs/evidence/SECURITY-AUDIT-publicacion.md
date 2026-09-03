@@ -10,7 +10,7 @@ Fecha: 2026-09-02 · Rama auditada: `talk-to-your-data` (+ remoto `origin`).
 
 - Total hallazgos: 6 activos + 1 crítico/pendiente
 - Critical: 0 · High: 1 (secreto en historial/remoto) · Medium: 1 · Low: 4
-- **1 High**: credencial local `<password-dev>` estaba en 2 evidencias y ya
+- **1 High**: password local de Postgres (valor redactado, antes `<password-dev>`) estaba en 2 evidencias y ya
   estaba **pusheada a GitHub** (`origin/talk-to-your-data`) → redactada en HEAD,
   **historial purgado localmente**, pendiente **force-push** para limpiar el remoto.
 
@@ -18,7 +18,7 @@ Fecha: 2026-09-02 · Rama auditada: `talk-to-your-data` (+ remoto `origin`).
 
 | # | Sev | Hallazgo | Estado |
 |---|-----|----------|--------|
-| 1 | HIGH | `PGPASSWORD=<password-dev>` en `docs/evidence/{E1-H3,E1-H4}/RESULTADOS.md`, presente en HEAD **y en el remoto** (commit `a1b6b61` en `origin/talk-to-your-data`) | Redactado en HEAD + historial purgado (filter-repo). **Pendiente force-push** |
+| 1 | HIGH | `PGPASSWORD=******` (password local de la BD de dev, valor redactado) estaba en `docs/evidence/{E1-H3,E1-H4}/RESULTADOS.md`, presente en HEAD **y en el remoto** (commit `a1b6b61` en `origin/talk-to-your-data`) | Redactado en HEAD + historial purgado (filter-repo). **Pendiente force-push** |
 | 2 | MEDIUM | `.envrc` trackeado en git (no ignorado). Sin secretos (solo defaults + `source_env_if_exists .envrc.local`), pero no debe publicarse | Corregido: eliminado del índice, `.envrc` añadido a `.gitignore`, plantilla `.envrc.example` versionada; README actualizado |
 | 3 | LOW | Ruta absoluta de máquina `REPO_ROOT` en `AGENTS.md` | Corregido: generalizada a `<repo-root>` |
 | 4 | LOW | Hostname interno "platypy" referenciado en PRD/README/ADR/HEARTBEAT/agent.py (sin IP ni credenciales; la IP real `IP_INTERNA` NO está versionada) | Aceptado: alias interno sin valor sensible; el PRD lo usa como nombre del host Ollama externo |
@@ -31,7 +31,7 @@ Fecha: 2026-09-02 · Rama auditada: `talk-to-your-data` (+ remoto `origin`).
 **Archivos:** `docs/evidence/E1-H3/RESULTADOS.md:19`, `docs/evidence/E1-H4/RESULTADOS.md:18`
 **CWE:** CWE-798
 
-**Descripción:** El password local de Postgres Docker (`<password-dev>`) quedó
+**Descripción:** El password local de Postgres Docker (valor redactado) quedó
 registrado en la transcripción de comandos de dos evidencias. Aunque es una
 credencial de desarrollo (docker-local, sin valor en prod), es un secreto y el
 repo estaba preparándose para publicarse. Además **ya se encontraba en el
@@ -41,9 +41,9 @@ remoto** `origin/talk-to-your-data` (commit `a1b6b61`, anterior al push de las
 **Remediación aplicada (local):**
 1. Redactado a `******` en ambos `RESULTADOS.md` (commit `5af61d9`).
 2. Historial reescrito con `git-filter-repo --replace-text` (mapeo
-   `<password-dev> → ******`), limitado a `talk-to-your-data` (única rama que
-   contiene los commits afectados; `main` y las ramas `feature/*`,`l0*` NO).
-3. Verificación: `git log talk-to-your-data -S <password-dev>` → 0
+   del valor del password → `******`), limitado a `talk-to-your-data` (única
+   rama que contiene los commits afectados; `main` y las ramas `feature/*`,`l0*` NO).
+3. Verificación: `git log` sobre la rama con el patrón del password → 0
    coincidencias; `git grep` sobre todos los commits de la rama → limpio.
 
 **Pendiente (requiere aprobación del usuario):**
