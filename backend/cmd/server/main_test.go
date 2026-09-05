@@ -35,7 +35,7 @@ func TestSpaServesEmbeddedFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := spaHandler(sub)
+	h := makeSpaHandler(sub)
 
 	req := httptest.NewRequest(http.MethodGet, "/.gitkeep", nil)
 	rec := httptest.NewRecorder()

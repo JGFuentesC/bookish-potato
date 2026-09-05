@@ -62,9 +62,18 @@ def validate_sql(sql: str, catalog: Catalog, max_rows: int | None = None) -> str
     if not isinstance(stmt, sqlglot.exp.Select):
         raise HTTPException(status_code=400, detail="solo se permiten consultas SELECT")
 
+    cte_names: set[str] = set()
+    with_node = stmt.args.get("with_")
+    if with_node is not None:
+        for cte in with_node.expressions:
+            if cte.alias:
+                cte_names.add(str(cte.alias))
+
     for table in stmt.find_all(sqlglot.exp.Table):
         if not table.name:
             raise HTTPException(status_code=400, detail="tabla-función no permitida")
+        if table.name in cte_names:
+            continue
         if table.name not in catalog.table_names:
             raise HTTPException(
                 status_code=400, detail=f"tabla no permitida: {table.name}"
@@ -92,9 +101,19 @@ def _register_views(con: duckdb.DuckDBPyConnection, catalog: Catalog, lakehouse:
 
 @router.post("/query", response_model=QueryResponse)
 def query(req: QueryRequest) -> QueryResponse:
+    result = execute_sql(req.sql)
+    return QueryResponse(**result)
+
+
+def execute_sql(sql: str) -> dict[str, Any]:
+    """Valida y ejecuta una sentencia SELECT sobre la capa gold.
+
+    Returns:
+        dict con claves ``columns``, ``rows``, ``row_count``, ``duration_ms``.
+    """
     catalog = _catalog()
     lakehouse = _lakehouse()
-    safe_sql = validate_sql(req.sql, catalog)
+    safe_sql = validate_sql(sql, catalog)
 
     con = duckdb.connect()
     result: dict[str, Any] = {}
@@ -124,9 +143,9 @@ def query(req: QueryRequest) -> QueryResponse:
     finally:
         con.close()
 
-    return QueryResponse(
-        columns=result["columns"],
-        rows=result["rows"],
-        row_count=len(result["rows"]),
-        duration_ms=int((time.time() - start) * 1000),
-    )
+    return {
+        "columns": result["columns"],
+        "rows": result["rows"],
+        "row_count": len(result["rows"]),
+        "duration_ms": int((time.time() - start) * 1000),
+    }
