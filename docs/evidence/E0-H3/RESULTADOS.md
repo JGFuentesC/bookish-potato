@@ -9,7 +9,7 @@ Candidata LLM `gemma4:latest` (Gemma 4 8B instruct, Q4_K_M) y respaldo `gemma4:e
 ## Comandos y salidas relevantes
 
 - Inventario: `ollama list` en `lab-ollama` → `gemma4:latest` (9.6 GB disco), `gemma4:e2b-it-q4_K_M` (7.2 GB, descargado en esta sesión), `embeddinggemma` (621 MB).
-- Acceso: sin conectividad directa a `11434` (IP Tailscale cambió a `IP_INTERNA`); se usó túnel SSH `-L 11434:127.0.0.1:11434 platypy`.
+- Acceso: sin conectividad directa a `11434` (IP Tailscale de la máquina remota cambió; `<ip-interna>`); se usó túnel SSH `-L 11434:127.0.0.1:11434 platypy`.
 - Bench candidata (20 × 512 tokens, `num_ctx=8192`, `temperature=0`, `seed=42`, prompt catálogo ~40 entidades):
   - `fully_in_vram: true` — `size == size_vram` = 3.25 GB; `ollama ps` `PROCESSOR 100% GPU`; `nvidia-smi` 4.1 GiB con solo LLM.
   - TTFT: min 0.45 s · **mediana 0.48 s** · max 0.50 s → cumple < 3 s.

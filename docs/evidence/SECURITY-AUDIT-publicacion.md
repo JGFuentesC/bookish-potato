@@ -21,7 +21,7 @@ Fecha: 2026-09-02 · Rama auditada: `talk-to-your-data` (+ remoto `origin`).
 | 1 | HIGH | `PGPASSWORD=******` (password local de la BD de dev, valor redactado) estaba en `docs/evidence/{E1-H3,E1-H4}/RESULTADOS.md`, presente en HEAD **y en el remoto** (commit `a1b6b61` en `origin/talk-to-your-data`) | Redactado en HEAD + historial purgado (filter-repo). **Pendiente force-push** |
 | 2 | MEDIUM | `.envrc` trackeado en git (no ignorado). Sin secretos (solo defaults + `source_env_if_exists .envrc.local`), pero no debe publicarse | Corregido: eliminado del índice, `.envrc` añadido a `.gitignore`, plantilla `.envrc.example` versionada; README actualizado |
 | 3 | LOW | Ruta absoluta de máquina `REPO_ROOT` en `AGENTS.md` | Corregido: generalizada a `<repo-root>` |
-| 4 | LOW | Hostname interno "platypy" referenciado en PRD/README/ADR/HEARTBEAT/agent.py (sin IP ni credenciales; la IP real `IP_INTERNA` NO está versionada) | Aceptado: alias interno sin valor sensible; el PRD lo usa como nombre del host Ollama externo |
+| 4 | LOW | Hostname interno "platypy" referenciado en PRD/README/ADR/HEARTBEAT/agent.py (sin IP ni credenciales; la IP real `<ip-interna>` NO está versionada) | Aceptado: alias interno sin valor sensible; el PRD lo usa como nombre del host Ollama externo |
 | 5 | LOW | SCA frontend: 6 vulns (4 high, 2 moderate) en deps **dev-only** (CLI `shadcn` → `@modelcontextprotocol/sdk` → `express`/`ajv`/`fast-uri`/`qs`) | Aceptado: build-time/dev-only, no llegan al bundle de producción; re-auditar al publicar. SCA de data-platform (26) y ai-sidecar (31): limpios |
 | 6 | LOW | Defaults `localhost:11434` en `.env.example`/`.envrc.example` | Aceptado: placeholder no sensible |
 
@@ -82,7 +82,7 @@ herramienta dev; re-auditar antes de un release público formal.
   `ghp_`, `AKIA`, `AIza`, `xox`, `BEGIN PRIVATE KEY` → 0 secretos reales
   (solo un placeholder `sk-ant-oat01-…` en una skill y reportes que citan los
   propios patrones).
-- **IP real de platypy** (`IP_INTERNA`): no aparece en ningún archivo
+- **IP real de platypy** (`<ip-interna>`): no aparece en ningún archivo
   trackeado ni en el historial; solo el alias textual "platypy".
 - **Bench E0-H3** (JSON): solo conteos de tokens, sin credenciales.
 - **`docs/llms-full.txt` / `docs/adk-docs.txt`**: documentación ADK, sin datos
